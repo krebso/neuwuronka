@@ -1,17 +1,18 @@
 /// Module for matrix operations
 
-use std::ops::{Add, AddAssign, Mul, Sub};
+use std::ops::{Add, Mul, Sub};
 
-#[derive(Eq, PartialEq, Debug, Clone, Default)]
-pub struct Matrix<T> {
+#[derive(PartialEq, Debug, Clone, Default)]
+pub struct Matrix {
     width: usize,
     height: usize,
-    _matrix: Vec<Vec<T>>,
+    _matrix: Vec<Vec<f32>>,
 }
 
-impl<T: Default + Copy> Matrix<T> {
-    pub fn create_matrix(width: usize, height: usize) -> Matrix<T> {
-        let mut m = Matrix::<T> {
+
+impl Matrix {
+    pub fn create_matrix(width: usize, height: usize) -> Matrix {
+        let mut m = Matrix {
             width,
             height,
             _matrix: Vec::with_capacity(height),
@@ -20,24 +21,24 @@ impl<T: Default + Copy> Matrix<T> {
         for h in 0..height {
             m._matrix.push(Vec::with_capacity(width));
             for _ in 0..width {
-                m._matrix[h].push(T::default());
+                m._matrix[h].push(0f32);
             }
         }
 
         m
     }
 
-    pub fn set(&mut self, x: usize, y: usize, value: T) {
+    pub fn set(&mut self, x: usize, y: usize, value: f32) {
         self._matrix[y][x] = value;
     }
 
-    pub fn get(&self, x: usize, y: usize) -> T {
+    pub fn get(&self, x: usize, y: usize) -> f32 {
         self._matrix[y][x]
     }
 
 }
 
-impl<T : Add<T, Output = T> + Default + Copy> Add for Matrix<T> {
+impl Add for Matrix {
     type Output = Self;
 
     fn add(self, other: Self) -> Self::Output {
@@ -58,7 +59,7 @@ impl<T : Add<T, Output = T> + Default + Copy> Add for Matrix<T> {
 }
 
 
-impl<T : Sub<T, Output = T> + Default + Copy> Sub for Matrix<T> {
+impl Sub for Matrix {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self::Output {
@@ -79,7 +80,7 @@ impl<T : Sub<T, Output = T> + Default + Copy> Sub for Matrix<T> {
 }
 
 
-impl<T : Mul<T, Output = T> + Add<T, Output = T> + Default + Copy + AddAssign> Mul for Matrix<T> {
+impl Mul for Matrix {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self::Output {
@@ -92,7 +93,7 @@ impl<T : Mul<T, Output = T> + Add<T, Output = T> + Default + Copy + AddAssign> M
         for y in 0..self.height {
             for x in 0..self.width {
 
-                let mut sum = T::default();
+                let mut sum = 0f32;
 
                 for k in 0..self.height {
                     sum += self.get(y, k) + other.get(x, k);
