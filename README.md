@@ -262,11 +262,14 @@ are four data files included:
 
 ### FAQ
 **Q:** Can I write in Python, please, please, pretty please?
+
 **A:** No. It's too slow without matrix libraries.
  
 **Q:** Can I implement a convolutional neural network instead of the feed-forward
     neural network?
+    
 **A:** Yes, but it might be harder.
 
 **Q:** Can I use attention?
+
 **A:** Yes, but it might be much harder.
