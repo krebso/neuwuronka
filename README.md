@@ -26,7 +26,7 @@ Thursday 1. 12. 2022 23:59 (December 1st)
   - The format of these files has to be the same as the supplied
     training/testing labels:
      - One prediction per line.
-     - Prediction for i-th input vector (ordered by the input .csv file) must
+     - Prediction for i-th input Vector (ordered by the input .csv file) must
        be on i-th line in the associated output file.
      - Each prediction is a single integer 0 - 9.
   - Replace the first line of this file with UČOs and names of all team mebers.
@@ -45,7 +45,7 @@ Thursday 1. 12. 2022 23:59 (December 1st)
     as your own will result in failure and will lead to disciplinary action.
   - Any implementation that uses testing input vectors for anything else
     than final evaluation will result in failure.
-  - Use of high-level libraries allowing matrix operations, neural
+  - Use of high-level libraries allowing Matrix operations, neural
     network operations, differentiation operations, linear algebra operations
     etc is forbidden and will result in failure.
     (Low-level math operations: sqrt, exp, log, rand... and libraries
@@ -125,7 +125,7 @@ are four data files included:
 
 ### FAQ
 **Q:** Can I write in Python, please, please, pretty please?
-**A:** No. It's too slow without matrix libraries.
+**A:** No. It's too slow without Matrix libraries.
 
 **Q:** Can I implement a convolutional neural network instead of the feed-forward
     neural network?
