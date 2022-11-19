@@ -5,114 +5,209 @@
 #ifndef NEUWURONKA_NETWORK_HPP
 #define NEUWURONKA_NETWORK_HPP
 
+#include <algorithm>
 #include <array>
-#include <random>
 #include <iostream>
+#include <random>
+#include <tuple>
+#include <vector>
+
 #include "math.hpp"
+#include "matrix.hpp"
 
+template <typename... args>
+class Network;
 
-// Modelling our network as a recursive structure allows us (surprisingly) to use recursive templates
-template<typename ...args>
-class Network {};
-
-
-template<typename previous_layer, typename current_layer, typename  ...args>
-class Network<previous_layer, current_layer, args...> {
+template <typename previous_layer, typename current_layer, typename... args>
+struct Network<previous_layer, current_layer, args...> {
+    using network_t = Network<current_layer, args...>;
     using input_t = Vector<previous_layer::size>;
     using output_t = Vector<current_layer::size>;
-    using weights_t = Matrix<previous_layer::size, current_layer::size + 1>;
-    using network_t = Network<current_layer, args...>;
+    using predict_t = typename network_t::predict_t;
+    using weights_t = Matrix<current_layer::size, previous_layer::size>;
+    using biases_t = output_t;
 
-    weights_t weights; // note this also includes the bias as the last element on each row
-    weights_t gradient; // preallocate everything
+    network_t network;  // rest of the recursively defined network
 
-    output_t output; //
+    output_t weighted_input;  // allows us to store inner potential vectors which will be
+                              // used during backprop
+    output_t activation;      // vector which is being passed to the next layer as
+                              // an input, also used during backprop
 
-    network_t network;
+    output_t activation_prime;  // output vector for computing first derivative of activation function
 
-    void train_sgd() {
-        // compute_gradient(gradient)
-        // update_weights(gradient)
+    weights_t weights;  // matrix of weights
+    biases_t biases;    // vector of biases
+
+    weights_t nabla_w;  // this is our aggregator for storing the deltas through
+                        // one iteration of SGD
+    biases_t nabla_b;   // same as above, but for biases
+
+    weights_t delta_nabla_w;  // pre-allocated output parameter, used during
+                              // back-prop for storing single delta
+    biases_t delta_nabla_b;   // same as above
+
+    template <typename D, typename G>
+    void init_weights_and_biases(D &distribution, G &generator) {
+        // given desired initial weight distribution, init weights and biases
+        for (size_t h = 0; h < weights.height; ++h) {
+            for (size_t w = 0; w < weights.width; ++w) weights.at(h, w) = distribution(generator);
+            biases[h] = distribution(generator);
+        }
     }
 
-    template<typename D, typename G>
-    void constexpr init_weights(D &distribution, G &generator) {
-        for (size_t h = 0; h < weights.height; ++h) {
-            for (size_t w = 0; w < weights.width; ++w) {
-                weights.at(h, w) = distribution(generator);
+    void zero_nablas() {
+        nabla_b.zero();
+        nabla_w.zero();
+        network.zero_nablas();
+    }
+
+    void update_weights(float eta) {
+        // update weights as biases
+        weights -= nabla_w * eta;
+        biases -= nabla_b * eta;
+
+        // update the rest of the network
+        network.update_weights(eta);
+    }
+
+    void update_mini_batch(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, size_t start, size_t end,
+                           float learning_rate) {
+        // num of samples in minibatch
+        auto n = static_cast<float>(end - start);
+
+        // recursively zero out both nablas
+        zero_nablas();
+
+        // for each training sample
+        for (size_t i = start; i < end; ++i) {
+            auto x = std::get<0>(data_and_labels[i]);
+
+            // set activations and weighted_inputs
+            feedforward(x);
+
+            // compute the gradient using backpropagation
+            backprop(std::get<0>(data_and_labels[i]), std::get<1>(data_and_labels[i]));
+        }
+
+        // update the weights and biases recursively for whole network
+        update_weights(learning_rate / n);
+    }
+
+    template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE>
+    void SGD(std::vector<std::tuple<input_t, predict_t>> &data_and_labels) {
+        if (previous_layer::input) {
+            std::mt19937 gen(42);  // NOLINT
+
+            float eta = 0.5;
+            float decay = 0.000001;
+
+            // in each epoch
+            for (size_t e = 0; e < EPOCHS; ++e) {
+                std::cout << "Epoch " << e + 1 << "/" << EPOCHS << "\n";
+                std::cout << network.biases.to_string() << "\n";
+                // compute the learning rate for current epoch wrt [momentum] and decay
+                auto lr = eta * (1.0f / (1.0f + decay * static_cast<float>(e)));
+
+                // shuffle the data randomly
+                std::shuffle(data_and_labels.begin(), data_and_labels.end(), gen);
+
+                // for all mini-batches
+                for (size_t batch_index = 0; batch_index < NUM_SAMPLES; batch_index += BATCH_SIZE) {
+                    // perform gradient descent on single minibatch
+                    update_mini_batch(data_and_labels, batch_index, std::min(NUM_SAMPLES, batch_index + BATCH_SIZE),
+                                      lr);
+                }
             }
         }
     }
 
-    inline void update_weights(const weights_t &Q, float eta, int batch_size) {
-        weights -= Q * (eta / static_cast<float>(batch_size));
-    }
+    const biases_t &backprop(const input_t &input, const predict_t &predict) {
+        if constexpr (current_layer::output) {
+            mse_cost_function_prime(activation, predict, delta_nabla_b);
+        } else {
+            // get the delta from next layer
+            auto &next_delta_nabla_b = network.backprop(activation, predict);
 
-public:
-    using predict_t = typename network_t::predict_t;
+            // multiply the corresponding matrix
+            dot_matrix_transposed_vector(network.weights, next_delta_nabla_b, delta_nabla_b);
+
+            // multiply with derivative of activation function
+            delta_nabla_b *= activation_prime;
+        }
+
+        dot_vector_vector_transposed(delta_nabla_b, input, delta_nabla_w);
+
+        nabla_b += delta_nabla_b;
+        nabla_w += delta_nabla_w;
+
+        return delta_nabla_b;
+    }
 
     predict_t feedforward(const input_t &input) {
-        std::cout << "My input is:  " << input.to_string() << "\n"; // FIXME
-
-        // transform using weights
-        weights.weight_bias_dot(input, output);
-
-        std::cout << "My weights are:\n" << weights.to_string() << "\n"; // FIXME
+        // compute weighted input
+        dot_matrix_vector_transposed(weights, input, weighted_input);
+        weighted_input += biases;
 
         // apply activation function
-        output.map(current_layer::activation_function);
+        map(current_layer::activation_function, weighted_input, activation);
 
-        std::cout << "My output is: " << output.to_string() << "\n"; // FIXME
+        // pre-compute first derivative of activation function, will be used during backprop
+        map(current_layer::activation_function_prime, weighted_input, activation_prime);
 
-
-        return network.feedforward(output);
+        // pass the activation as an input to the next layer
+        return network.feedforward(activation);
     }
 
-    output_t backprop(const input_t& activation, const predict_t &ground_truth) {
-        auto z = weights.weight_bias_dot(activation);
-        if constexpr (current_layer::output) {
-            return z.map(current_layer::activation_function) - ground_truth;
-        } else {
-            auto delta = activation * z.map(current_layer::activation_function_prime);;
-        }
-    }
-
-    Network() {
-        // TODO: this needs not to be instantiated pre layer
-        std::random_device rd;
-        std::mt19937 gen(rd());
-
-        if constexpr (current_layer::output) { // Xavier
-            constexpr float lower = -(1.0 / ce_sqrt(previous_layer::size));
-            constexpr float upper = (1.0 / ce_sqrt(previous_layer::size));
+    explicit Network(std::mt19937 &gen)
+        : network(gen),
+          weighted_input(),
+          activation(),
+          activation_prime(),
+          weights(),
+          biases(),
+          nabla_w(),
+          nabla_b(),
+          delta_nabla_w(),
+          delta_nabla_b() {
+        if constexpr (current_layer::output) {  // Xavier
+            float lower = -(1.0 / std::sqrt(previous_layer::size));
+            float upper = (1.0 / std::sqrt(previous_layer::size));
             auto distribution = std::uniform_real_distribution<float>(lower, upper);
-            init_weights(distribution, gen);
-        } else { // He
-            auto distribution = std::normal_distribution<float>(0.0, ce_sqrt(2.0 / previous_layer::size));
-            init_weights(distribution, gen);
+            init_weights_and_biases(distribution, gen);
+        } else {  // He
+            auto distribution = std::normal_distribution<float>(0.0, std::sqrt(2.0 / previous_layer::size));
+            init_weights_and_biases(distribution, gen);
         }
     }
 
-    int predict(const input_t& v) {
-        return feedforward(v).imax();
+    template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE>
+    void fit(std::vector<std::tuple<input_t, predict_t>> &data_and_labels) {
+        SGD<NUM_SAMPLES, EPOCHS, BATCH_SIZE>(data_and_labels);
     }
 
-    // TODO fit
+    auto predict(const input_t &v) { return feedforward(v).imax(); }
 
+    template <typename input_t, typename predict_t>
+    auto &predict(const std::vector<input_t> &data, std::vector<predict_t> &out) {
+        for (const input_t &input : data) out.push_back(predict(input));
+        return out;
+    }
 };
 
-template<typename output_layer>
+template <typename output_layer>
 class Network<output_layer> {
-public:
+   public:
     using predict_t = Vector<output_layer::size>;
 
-    Network() = default;
+    predict_t activation;
 
-    predict_t feedforward(const predict_t &input) {
-        // TODO apply softmax
-        std::cout << "Last predict";
-        return input;
-    }
+    explicit Network(std::mt19937 &) : activation(){};
+
+    predict_t feedforward(const predict_t &input) { return softmax(input, activation); }
+    // predict_t feedforward(const predict_t &input) { return input; }
+    void update_weights(float lr){};
+    void zero_nablas(){};
 };
 
-#endif //NEUWURONKA_NETWORK_HPP
+#endif  // NEUWURONKA_NETWORK_HPP
