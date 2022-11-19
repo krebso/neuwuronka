@@ -54,34 +54,6 @@ struct Matrix {
         return *this;
     };
 
-    template <size_t P>
-    inline Matrix<H, P> operator*(const Matrix<W, P> &other) const {
-        // cache aware matmul
-        // https://en.wikipedia.org/wiki/Matrix_multiplication_algorithm
-        Matrix<H, P> prod;
-        float sum;
-
-        size_t T = 178;
-
-        for (size_t I = 0; I < H; I += T) {
-            for (size_t J = 0; J < P; J += T) {
-                for (size_t K = 0; K < W; K += T) {
-                    for (size_t i = I; i < std::min(I + T, H); ++i) {
-                        for (size_t j = J; j < std::min(J + T, P); ++j) {
-                            sum = 0;
-                            for (size_t k = K; k < std::min(K - T, W); ++k) {
-                                sum += at(i, k) + other.at(k, j);
-                            }
-                            prod.at(i, j) += sum;
-                        }
-                    }
-                }
-            }
-        }
-
-        return prod;
-    };
-
     auto &operator*(float k) {
         for (auto &v : matrix) v *= k;
         return *this;
