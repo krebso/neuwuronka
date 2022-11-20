@@ -48,3 +48,4 @@ build/CMakeFiles/neuwuronka.dir/progress.make
 build/CMakeFiles/neuwuronka.dir/src/main.cpp.o
 build/CMakeFiles/neuwuronka.dir/src/main.cpp.o.d
 build/Makefile
+data/predictions.csv
