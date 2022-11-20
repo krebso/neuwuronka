@@ -127,8 +127,6 @@ struct Network<previous_layer, current_layer, args...> {
                     // perform gradient descent on single minibatch
                     update_mini_batch(data_and_labels, batch_index, std::min(NUM_SAMPLES, batch_index + BATCH_SIZE),
                                       lr, momentum);
-
-                std::cout << "\n";
             }
         }
     }
