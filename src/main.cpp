@@ -5,7 +5,6 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
-#include <omp.h>
 
 #include "network.hpp"
 
