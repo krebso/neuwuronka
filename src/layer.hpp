@@ -24,6 +24,9 @@ struct Layer {
 
     static constexpr const auto& activation_function = relu<N>;
     static constexpr const auto& activation_function_prime = relu_prime<N>;
+
+    // static constexpr const auto& activation_function = sigmoid<N>;
+    // static constexpr const auto& activation_function_prime = sigmoid_prime<N>;
 };
 
 // NotAnInputOrAnOutput sounds better imo

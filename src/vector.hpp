@@ -15,7 +15,7 @@ struct Vector {
     Vector() = default;
 
     void zero() {
-        for (auto& v : vector) v = 0;
+        for (auto& v : vector) v = 0.0f;
     }
 
     data_t operator[](size_t i) const { return vector[i]; }

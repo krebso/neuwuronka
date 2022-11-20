@@ -11,6 +11,11 @@
 #include "vector.hpp"
 
 template <typename N>
+inline N one_zero(N n) {
+    return n > 0.0f ? 1.0f : 0.0f;
+}
+
+template <typename N>
 inline N relu(N n) {
     return std::max(n, 0.0f);
 }
@@ -33,17 +38,23 @@ inline N sigmoid_prime(N n) {
 template <size_t S>
 inline Vector<S> &softmax(const Vector<S> &v, Vector<S> &out) {
     float max = v.vector[0];
-    float sum, c;
+    float sum = 0;
 
     for (size_t i = 1; i < S; ++i)
         if (max < v.vector[i]) max = v.vector[i];
 
-    for (size_t i = 0; i < S; ++i) sum += std::exp(v[i] - max);
+    for (size_t i = 0; i < S; i++) sum += std::exp(v.vector[i] - max);
 
-    c = max + std::log(sum);
+    float c = std::max(sum, 10e-8f);
 
-    for (size_t i = 0; i < S; ++i) out.vector[i] = exp(v.vector[i] - c);
+    for (size_t i = 0; i < S; i++) out.vector[i] = std::exp(v.vector[i] - max) / c;
 
+    return out;
+}
+
+template <size_t S>
+inline auto &cross_entropy_cost_function_prime(const Vector<S> &activation, const Vector<S> &y, Vector<S> &out) {
+    for (size_t i = 0; i < S; ++i) out.vector[i] = activation.vector[i] - y.vector[i];
     return out;
 }
 
@@ -52,5 +63,4 @@ inline auto &mse_cost_function_prime(const Vector<S> &activation, const Vector<S
     for (size_t i = 0; i < S; ++i) out.vector[i] = activation.vector[i] - y.vector[i];
     return out;
 }
-
 #endif  // NEUWURONKA_MATH_HPP

@@ -7,21 +7,8 @@
 #include <vector>
 
 #include "layer.hpp"
-#include "math.hpp"
-#include "matrix.hpp"
 #include "network.hpp"
-#include "vector.hpp"
 
-/* All the different sources I used when writing this project
- * [1] http://neuralnetworksanddeeplearning.com/chap1.html
- * [2] https://gist.github.com/alexshtf/eb5128b3e3e143187794
- * [3] https://github.com/mnielsen/neural-networks-and-deep-learning
- */
-
-/*
- * Agenda
- * [1] fix algorithm
- */
 
 template <typename input_t, typename output_t, size_t NUM_SAMPLES>
 std::vector<std::tuple<input_t, output_t>>& load_train_data_and_labels(
@@ -89,18 +76,35 @@ void xor_network() {
 
     std::mt19937 gen(42);  // NOLINT
 
-    auto xor_network = Network<InputLayer<2>, HiddenLayer<5>, OutputLayer<2>>(gen);
+    auto xor_network = Network<InputLayer<2>, HiddenLayer<2>, OutputLayer<2>>(gen);
 
-    xor_network.fit<4, 1000, 3>(xor_data_and_labels);
+
+    // check whether the feedforward works, for this set of weights, the network correctly classifies the
+    // input booleans, where index of answer is the bool value
+
+    // xor_network.weights.at(0, 0) = 2.0f;
+    // xor_network.weights.at(0, 1) = -2.0f;
+    // xor_network.weights.at(1, 0) = -2.0f;
+    // xor_network.weights.at(1, 1) = 2.0f;
+    // xor_network.biases = {0.0f, 0.0f};
+
+    // xor_network.network.weights.at(0, 0) = -1.0f;
+    // xor_network.network.weights.at(0, 1) = -1.0f;
+    // xor_network.network.weights.at(1, 0) = 1.0f;
+    // xor_network.network.weights.at(1, 1) = 1.0f;
+    // xor_network.network.biases = {1.0f, 0.0f};
+    
+    // feedforward works, try the training
+    xor_network.fit<4, 100, 1>(xor_data_and_labels);
 
     auto x = xor_network.predict(Vector<2>{1, 1});
-    std::cout << "Predicted: [1, 1] -> " << x << "\n";
+    std::cout << "[1, 1] -> " << x << "\n";
     x = xor_network.predict(Vector<2>{0, 0});
-    std::cout << "Predicted: [0, 0] -> " << x << "\n";
+    std::cout << "[0, 0] -> " << x << "\n";
     x = xor_network.predict(Vector<2>{0, 1});
-    std::cout << "Predicted: [0, 1] -> " << x << "\n";
+    std::cout << "[0, 1] -> " << x << "\n";
     x = xor_network.predict(Vector<2>{1, 0});
-    std::cout << "Predicted: [1, 0] -> " << x << "\n";
+    std::cout << "[1, 0] -> " << x << "\n";
 }
 
 void mnist_network() {
@@ -135,7 +139,7 @@ void mnist_network() {
 
     auto mnist_network = Network<InputLayer<INPUT_DIMENSION>, HiddenLayer<64>, OutputLayer<OUTPUT_DIMENSION>>(gen);
 
-    mnist_network.fit<TRAIN_SAMPLE_SIZE, 10, 128>(train_data_and_labels);
+    mnist_network.fit<TRAIN_SAMPLE_SIZE, 25, 128>(train_data_and_labels, 0.15f, 0.0f);
 
     mnist_network.predict(test_data, test_predictions);
 

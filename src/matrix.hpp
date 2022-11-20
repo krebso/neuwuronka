@@ -86,7 +86,7 @@ auto &dot_matrix_vector_transposed(const Matrix<H, W> &m, const Vector<W> &v, Ve
 }
 
 template <size_t H, size_t W>
-auto &dot_vector_vector_transposed(const Vector<H> &hv, const Vector<W> &wv, Matrix<H, W> &out) {
+auto &dot_vector_transposed_vector(const Vector<H> &hv, const Vector<W> &wv, Matrix<H, W> &out) {
     for (size_t h = 0; h < H; ++h)
         for (size_t w = 0; w < W; ++w) out.at(h, w) = hv[h] * wv[w];
     return out;

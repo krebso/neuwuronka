@@ -43,6 +43,9 @@ struct Network<previous_layer, current_layer, args...> {
                         // one iteration of SGD
     biases_t nabla_b;   // same as above, but for biases
 
+    weights_t momentum_nabla_w;  // momentum weights history
+    biases_t momentum_nabla_b;   // same as above for biases
+
     weights_t delta_nabla_w;  // pre-allocated output parameter, used during
                               // back-prop for storing single delta
     biases_t delta_nabla_b;   // same as above
@@ -62,17 +65,25 @@ struct Network<previous_layer, current_layer, args...> {
         network.zero_nablas();
     }
 
-    void update_weights(float eta) {
-        // update weights as biases
-        weights -= nabla_w * eta;
-        biases -= nabla_b * eta;
+    void update_weights(float learning_rate, float momentum) {
+        // update the friction
+        momentum_nabla_w * momentum;
+        momentum_nabla_b * momentum;
+
+        // update history with current nablas
+        momentum_nabla_w += nabla_w * learning_rate;
+        momentum_nabla_b += nabla_b * learning_rate;
+
+        // update weights and biases
+        weights -= momentum_nabla_w;
+        biases -= momentum_nabla_b;
 
         // update the rest of the network
-        network.update_weights(eta);
+        if constexpr(!current_layer::output) network.update_weights(learning_rate, momentum);
     }
 
     void update_mini_batch(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, size_t start, size_t end,
-                           float learning_rate) {
+                           float learning_rate, float momentum) {
         // num of samples in minibatch
         auto n = static_cast<float>(end - start);
 
@@ -83,7 +94,7 @@ struct Network<previous_layer, current_layer, args...> {
         for (size_t i = start; i < end; ++i) {
             auto x = std::get<0>(data_and_labels[i]);
 
-            // set activations and weighted_inputs
+            // set activations, (both actual and prime) and weighted_inputs
             feedforward(x);
 
             // compute the gradient using backpropagation
@@ -91,69 +102,86 @@ struct Network<previous_layer, current_layer, args...> {
         }
 
         // update the weights and biases recursively for whole network
-        update_weights(learning_rate / n);
+        update_weights(learning_rate / n, momentum);
     }
 
     template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE>
-    void SGD(std::vector<std::tuple<input_t, predict_t>> &data_and_labels) {
+    void SGD(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, float learning_rate, float momentum, float decay) {
         if (previous_layer::input) {
             std::mt19937 gen(42);  // NOLINT
 
-            float eta = 0.5;
-            float decay = 0.000001;
-
             // in each epoch
             for (size_t e = 0; e < EPOCHS; ++e) {
+
+                // compute the learning rate for current epoch wrt to decay
+                // auto lr = learning_rate * (1.0f / (1.0f + decay * static_cast<float>(e)));
+                auto lr = learning_rate;
+
                 std::cout << "Epoch " << e + 1 << "/" << EPOCHS << "\n";
-                std::cout << network.biases.to_string() << "\n";
-                // compute the learning rate for current epoch wrt [momentum] and decay
-                auto lr = eta * (1.0f / (1.0f + decay * static_cast<float>(e)));
 
                 // shuffle the data randomly
                 std::shuffle(data_and_labels.begin(), data_and_labels.end(), gen);
 
                 // for all mini-batches
-                for (size_t batch_index = 0; batch_index < NUM_SAMPLES; batch_index += BATCH_SIZE) {
+                for (size_t batch_index = 0; batch_index < NUM_SAMPLES; batch_index += BATCH_SIZE)
                     // perform gradient descent on single minibatch
                     update_mini_batch(data_and_labels, batch_index, std::min(NUM_SAMPLES, batch_index + BATCH_SIZE),
-                                      lr);
-                }
+                                      lr, momentum);
+
+                std::cout << "\n";
             }
         }
     }
 
     const biases_t &backprop(const input_t &input, const predict_t &predict) {
         if constexpr (current_layer::output) {
-            mse_cost_function_prime(activation, predict, delta_nabla_b);
+            cross_entropy_cost_function_prime(activation, predict, delta_nabla_b);
         } else {
             // get the delta from next layer
             auto &next_delta_nabla_b = network.backprop(activation, predict);
 
             // multiply the corresponding matrix
             dot_matrix_transposed_vector(network.weights, next_delta_nabla_b, delta_nabla_b);
-
-            // multiply with derivative of activation function
-            delta_nabla_b *= activation_prime;
         }
 
-        dot_vector_vector_transposed(delta_nabla_b, input, delta_nabla_w);
+        delta_nabla_b *= activation_prime;
+
+        if constexpr (current_layer::output) {
+            // std::cout << "[Output layer] Delta nabla b: " << delta_nabla_b.to_string() << "\n";
+        } else {
+            // std::cout << "[Hidden layer] Delta nabla b: " << delta_nabla_b.to_string() << "\n";
+        }
+
+        dot_vector_transposed_vector(delta_nabla_b, input, delta_nabla_w);
+
+        // std::cout << "Delta nabla w: \n" << delta_nabla_w.to_string() << "\n";
 
         nabla_b += delta_nabla_b;
         nabla_w += delta_nabla_w;
+
+        // std::cout << "Leaving backprop\n";
 
         return delta_nabla_b;
     }
 
     predict_t feedforward(const input_t &input) {
+        // // std::cout << "Feedforward\n";
+
         // compute weighted input
         dot_matrix_vector_transposed(weights, input, weighted_input);
         weighted_input += biases;
 
+        // // std::cout << "Weighted input: " << weighted_input.to_string() << "\n";
+
         // apply activation function
         map(current_layer::activation_function, weighted_input, activation);
 
+        // // std::cout << "Activation: " << activation.to_string() << "\n";
+
         // pre-compute first derivative of activation function, will be used during backprop
         map(current_layer::activation_function_prime, weighted_input, activation_prime);
+
+        // // std::cout << "Activation prime: " << activation_prime.to_string() << "\n";
 
         // pass the activation as an input to the next layer
         return network.feedforward(activation);
@@ -166,11 +194,13 @@ struct Network<previous_layer, current_layer, args...> {
           activation_prime(),
           weights(),
           biases(),
-          nabla_w(),
+          nabla_w(), 
           nabla_b(),
           delta_nabla_w(),
-          delta_nabla_b() {
-        if constexpr (current_layer::output) {  // Xavier
+          delta_nabla_b(),
+          momentum_nabla_w(),
+          momentum_nabla_b() {
+        if constexpr (true || current_layer::output) {  // Xavier
             float lower = -(1.0 / std::sqrt(previous_layer::size));
             float upper = (1.0 / std::sqrt(previous_layer::size));
             auto distribution = std::uniform_real_distribution<float>(lower, upper);
@@ -182,8 +212,8 @@ struct Network<previous_layer, current_layer, args...> {
     }
 
     template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE>
-    void fit(std::vector<std::tuple<input_t, predict_t>> &data_and_labels) {
-        SGD<NUM_SAMPLES, EPOCHS, BATCH_SIZE>(data_and_labels);
+    void fit(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, float learning_rate = 0.1f, float momentum = 0.9f, float decay = 0.0f) {
+        SGD<NUM_SAMPLES, EPOCHS, BATCH_SIZE>(data_and_labels, learning_rate, momentum, decay);
     }
 
     auto predict(const input_t &v) { return feedforward(v).imax(); }
@@ -204,9 +234,10 @@ class Network<output_layer> {
 
     explicit Network(std::mt19937 &) : activation(){};
 
-    predict_t feedforward(const predict_t &input) { return softmax(input, activation); }
-    // predict_t feedforward(const predict_t &input) { return input; }
-    void update_weights(float lr){};
+    predict_t feedforward(const predict_t &input) {
+        return softmax(input, activation);
+    }
+
     void zero_nablas(){};
 };
 
