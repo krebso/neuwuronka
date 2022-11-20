@@ -49,3 +49,7 @@ build/CMakeFiles/neuwuronka.dir/src/main.cpp.o
 build/CMakeFiles/neuwuronka.dir/src/main.cpp.o.d
 build/Makefile
 data/predictions.csv
+data/fashion_mnist_train_vectors.csv
+data/fashion_mnist_test_labels.csv
+data/fashion_mnist_test_vectors.csv
+data/fashion_mnist_train_labels.csv
