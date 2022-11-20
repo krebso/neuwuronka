@@ -14,6 +14,11 @@
 
 #include "matrix.hpp"
 
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wpass-failed"
+#endif
+
 // Each network is constructed using layers
 template <size_t NEURONS, typename N = float>
 struct Layer {
