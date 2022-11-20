@@ -5,13 +5,12 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <omp.h>
 
-#include "layer.hpp"
 #include "network.hpp"
 
-
 template <typename input_t, typename output_t, size_t NUM_SAMPLES>
-std::vector<std::tuple<input_t, output_t>>& load_train_data_and_labels(
+static std::vector<std::tuple<input_t, output_t>>& load_train_data_and_labels(
     const char* const& data_path, const char* const& labels_path, std::vector<std::tuple<input_t, output_t>>& out) {
     std::ifstream data(data_path);
     std::ifstream labels(labels_path);
@@ -43,7 +42,7 @@ std::vector<std::tuple<input_t, output_t>>& load_train_data_and_labels(
 }
 
 template <typename V, size_t N>
-std::vector<V>& load_test_data(const char* const data_path, std::vector<V>& out) {
+static std::vector<V>& load_test_data(const char* const data_path, std::vector<V>& out) {
     std::ifstream data(data_path);
 
     size_t pixel;
@@ -78,7 +77,6 @@ void xor_network() {
 
     auto xor_network = Network<InputLayer<2>, HiddenLayer<2>, OutputLayer<2>>(gen);
 
-
     // check whether the feedforward works, for this set of weights, the network correctly classifies the
     // input booleans, where index of answer is the bool value
 
@@ -93,9 +91,9 @@ void xor_network() {
     // xor_network.network.weights.at(1, 0) = 1.0f;
     // xor_network.network.weights.at(1, 1) = 1.0f;
     // xor_network.network.biases = {1.0f, 0.0f};
-    
+
     // feedforward works, try the training
-    xor_network.fit<4, 100, 1>(xor_data_and_labels);
+    xor_network.fit<4, 100, 1>(xor_data_and_labels, 4.0f, 0.0f, 0.0f);
 
     auto x = xor_network.predict(Vector<2>{1, 1});
     std::cout << "[1, 1] -> " << x << "\n";
@@ -107,7 +105,7 @@ void xor_network() {
     std::cout << "[1, 0] -> " << x << "\n";
 }
 
-void mnist_network() {
+static void mnist_network() {
     constexpr size_t INPUT_IMAGE_WIDTH = 28;
     constexpr size_t INPUT_IMAGE_HEIGHT = 28;
     constexpr size_t INPUT_DIMENSION = INPUT_IMAGE_HEIGHT * INPUT_IMAGE_WIDTH;
@@ -137,9 +135,9 @@ void mnist_network() {
 
     load_test_data<Vector<INPUT_DIMENSION>, TEST_SAMPLE_SIZE>(TEST_DATA_PATH, test_data);
 
-    auto mnist_network = Network<InputLayer<INPUT_DIMENSION>, HiddenLayer<64>, OutputLayer<OUTPUT_DIMENSION>>(gen);
+    auto mnist_network = Network<InputLayer<INPUT_DIMENSION>, HiddenLayer<70>, OutputLayer<OUTPUT_DIMENSION>>(gen);
 
-    mnist_network.fit<TRAIN_SAMPLE_SIZE, 25, 128>(train_data_and_labels, 0.15f, 0.0f);
+    mnist_network.fit<TRAIN_SAMPLE_SIZE, 32, 128>(train_data_and_labels, 0.15f, 0.4f, 0.0f);
 
     mnist_network.predict(test_data, test_predictions);
 

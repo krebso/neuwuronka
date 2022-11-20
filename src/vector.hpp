@@ -23,55 +23,60 @@ struct Vector {
     data_t& operator[](size_t i) { return vector[i]; }
 
     Vector<N>& operator+(const Vector<N>& other) {
+        #pragma clang loop vectorize(assume_safety)
+        #pragma clang loop unroll_count(10)
         for (size_t i = 0; i < N; i++) vector[i] += other[i];
         return *this;
     }
 
     Vector<N>& operator+=(const Vector<N>& other) {
+        #pragma clang loop vectorize(assume_safety)
+        #pragma clang loop unroll_count(10)
         for (size_t i = 0; i < N; i++) vector[i] += other.vector[i];
         return *this;
     }
 
     Vector<N> operator-(Vector<N> other) {
+        #pragma clang loop vectorize(assume_safety)
+        #pragma clang loop unroll_count(10)
         for (size_t i = 0; i < N; i++) vector[i] -= other.vector[i];
         return *this;
     }
 
     Vector<N> operator-=(Vector<N> other) {
+        #pragma clang loop vectorize(assume_safety)
+        #pragma clang loop unroll_count(10)
         for (size_t i = 0; i < N; i++) vector[i] -= other.vector[i];
         return *this;
     }
 
     Vector<N> operator*(Vector<N> other) {
+        #pragma clang loop vectorize(assume_safety)
+        #pragma clang loop unroll_count(10)
         for (size_t i = 0; i < N; i++) vector[i] *= other.vector[i];
         return *this;
     }
 
     Vector<N> operator*=(Vector<N> other) {
+        #pragma clang loop vectorize(assume_safety)
+        #pragma clang loop unroll_count(10)
         for (size_t i = 0; i < N; i++) vector[i] *= other.vector[i];
         return *this;
     }
 
     Vector<N>& operator*=(data_t k) {
+        #pragma clang loop vectorize(assume_safety)
+        #pragma clang loop unroll_count(10)
         for (double& d : vector) d *= k;
 
         return *this;
     }
 
     Vector<N> operator*(float k) {
+        #pragma clang loop vectorize(assume_safety)
+        #pragma clang loop unroll_count(10)
         for (auto& v : vector) v *= k;
         return *this;
-    }
-
-    auto to_string() const {
-        std::string sep;
-        std::string r = "[";
-        for (auto v : vector) {
-            r += sep + std::to_string(v);
-            sep = ", ";
-        }
-        r += "]";
-        return r;
     }
 
     [[nodiscard]] size_t imax() const {
@@ -84,6 +89,8 @@ struct Vector {
 
 template <typename F, typename V>
 auto map(const F& f, const V& v, V& out) {
+    #pragma clang loop vectorize(assume_safety)
+    #pragma clang loop unroll_count(10)
     for (size_t i = 0; i < V::size; ++i) out.vector[i] = f(v.vector[i]);
     return v;
 }

@@ -12,9 +12,37 @@
 #include <tuple>
 #include <vector>
 
-#include "math.hpp"
 #include "matrix.hpp"
 
+// Each network is constructed using layers
+template <size_t NEURONS, typename N = float>
+struct Layer {
+    static constexpr size_t size = NEURONS;
+    static constexpr bool input = false;
+    static constexpr bool output = false;
+
+    static constexpr const auto& activation_function = relu<N>;
+    static constexpr const auto& activation_function_prime = relu_prime<N>;
+};
+
+// NotAnInputOrAnOutput sounds better imo
+// And yes, it is completely useless from technical point of view, BUT when you
+// specify the network architecture, you can use proper term.
+template <size_t NEURONS, typename N = float>
+struct HiddenLayer : Layer<NEURONS> {};
+
+template <size_t NEURONS, typename N = float>
+struct InputLayer : Layer<NEURONS> {
+    static constexpr bool input = true;
+};
+
+template <size_t NEURONS, typename N = float>
+struct OutputLayer : Layer<NEURONS> {
+    static constexpr bool output = true;
+};
+
+
+// Interface for the whole network
 template <typename... args>
 class Network;
 
@@ -62,13 +90,13 @@ struct Network<previous_layer, current_layer, args...> {
     void zero_nablas() {
         nabla_b.zero();
         nabla_w.zero();
-        network.zero_nablas();
+        if constexpr (!current_layer::output) network.zero_nablas();
     }
 
     void update_weights(float learning_rate, float momentum) {
         // update the friction
-        momentum_nabla_w * momentum;
-        momentum_nabla_b * momentum;
+        momentum_nabla_w *momentum;
+        momentum_nabla_b *momentum;
 
         // update history with current nablas
         momentum_nabla_w += nabla_w * learning_rate;
@@ -79,7 +107,7 @@ struct Network<previous_layer, current_layer, args...> {
         biases -= momentum_nabla_b;
 
         // update the rest of the network
-        if constexpr(!current_layer::output) network.update_weights(learning_rate, momentum);
+        if constexpr (!current_layer::output) network.update_weights(learning_rate, momentum);
     }
 
     void update_mini_batch(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, size_t start, size_t end,
@@ -106,27 +134,26 @@ struct Network<previous_layer, current_layer, args...> {
     }
 
     template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE>
-    void SGD(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, float learning_rate, float momentum, float decay) {
+    void SGD(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, float learning_rate, float momentum,
+             float decay) {
         if (previous_layer::input) {
             std::mt19937 gen(42);  // NOLINT
+            auto lr = learning_rate;
 
             // in each epoch
             for (size_t e = 0; e < EPOCHS; ++e) {
-
-                // compute the learning rate for current epoch wrt to decay
-                // auto lr = learning_rate * (1.0f / (1.0f + decay * static_cast<float>(e)));
-                auto lr = learning_rate;
-
                 std::cout << "Epoch " << e + 1 << "/" << EPOCHS << "\n";
+                lr *= (1.0f / (1.0f + decay * static_cast<float>(e)));
 
                 // shuffle the data randomly
                 std::shuffle(data_and_labels.begin(), data_and_labels.end(), gen);
 
                 // for all mini-batches
                 for (size_t batch_index = 0; batch_index < NUM_SAMPLES; batch_index += BATCH_SIZE)
+
                     // perform gradient descent on single minibatch
-                    update_mini_batch(data_and_labels, batch_index, std::min(NUM_SAMPLES, batch_index + BATCH_SIZE),
-                                      lr, momentum);
+                    update_mini_batch(data_and_labels, batch_index, std::min(NUM_SAMPLES, batch_index + BATCH_SIZE), lr,
+                                      momentum);
             }
         }
     }
@@ -142,44 +169,30 @@ struct Network<previous_layer, current_layer, args...> {
             dot_matrix_transposed_vector(network.weights, next_delta_nabla_b, delta_nabla_b);
         }
 
+        // multiply with the derivative of activation function
         delta_nabla_b *= activation_prime;
 
-        if constexpr (current_layer::output) {
-            // std::cout << "[Output layer] Delta nabla b: " << delta_nabla_b.to_string() << "\n";
-        } else {
-            // std::cout << "[Hidden layer] Delta nabla b: " << delta_nabla_b.to_string() << "\n";
-        }
-
+        // compute the delta for weights
         dot_vector_transposed_vector(delta_nabla_b, input, delta_nabla_w);
 
-        // std::cout << "Delta nabla w: \n" << delta_nabla_w.to_string() << "\n";
-
+        // update the aggregator for minibatch
         nabla_b += delta_nabla_b;
         nabla_w += delta_nabla_w;
 
-        // std::cout << "Leaving backprop\n";
-
+        // send the delta for layer below
         return delta_nabla_b;
     }
 
     predict_t feedforward(const input_t &input) {
-        // // std::cout << "Feedforward\n";
-
         // compute weighted input
         dot_matrix_vector_transposed(weights, input, weighted_input);
         weighted_input += biases;
 
-        // // std::cout << "Weighted input: " << weighted_input.to_string() << "\n";
-
         // apply activation function
         map(current_layer::activation_function, weighted_input, activation);
 
-        // // std::cout << "Activation: " << activation.to_string() << "\n";
-
         // pre-compute first derivative of activation function, will be used during backprop
         map(current_layer::activation_function_prime, weighted_input, activation_prime);
-
-        // // std::cout << "Activation prime: " << activation_prime.to_string() << "\n";
 
         // pass the activation as an input to the next layer
         return network.feedforward(activation);
@@ -192,13 +205,13 @@ struct Network<previous_layer, current_layer, args...> {
           activation_prime(),
           weights(),
           biases(),
-          nabla_w(), 
+          nabla_w(),
           nabla_b(),
           delta_nabla_w(),
           delta_nabla_b(),
           momentum_nabla_w(),
           momentum_nabla_b() {
-        if constexpr (true || current_layer::output) {  // Xavier
+        if constexpr (false || current_layer::output) {  // Xavier
             float lower = -(1.0 / std::sqrt(previous_layer::size));
             float upper = (1.0 / std::sqrt(previous_layer::size));
             auto distribution = std::uniform_real_distribution<float>(lower, upper);
@@ -210,7 +223,8 @@ struct Network<previous_layer, current_layer, args...> {
     }
 
     template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE>
-    void fit(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, float learning_rate = 0.1f, float momentum = 0.9f, float decay = 0.0f) {
+    void fit(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, float learning_rate,
+             float momentum, float decay) {
         SGD<NUM_SAMPLES, EPOCHS, BATCH_SIZE>(data_and_labels, learning_rate, momentum, decay);
     }
 
@@ -224,19 +238,14 @@ struct Network<previous_layer, current_layer, args...> {
 };
 
 template <typename output_layer>
-class Network<output_layer> {
-   public:
+struct Network<output_layer> {
     using predict_t = Vector<output_layer::size>;
 
     predict_t activation;
 
     explicit Network(std::mt19937 &) : activation(){};
 
-    predict_t feedforward(const predict_t &input) {
-        return softmax(input, activation);
-    }
-
-    void zero_nablas(){};
+    predict_t feedforward(const predict_t &input) { return softmax(input, activation); }
 };
 
 #endif  // NEUWURONKA_NETWORK_HPP

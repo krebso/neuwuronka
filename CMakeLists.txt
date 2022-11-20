@@ -11,7 +11,7 @@ endif()
 
 # Add flags
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS_RELEASE "-w -Ofast -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wpass-failed")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 
 
