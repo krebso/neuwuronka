@@ -122,29 +122,40 @@ static void mnist_network() {
     std::mt19937 gen(42);
 
     std::vector<std::tuple<Vector<INPUT_DIMENSION>, Vector<OUTPUT_DIMENSION>>> train_data_and_labels;
-    train_data_and_labels.reserve(TRAIN_SAMPLE_SIZE);
-    load_train_data_and_labels<Vector<INPUT_DIMENSION>, Vector<OUTPUT_DIMENSION>, TRAIN_SAMPLE_SIZE>(
-        TRAIN_DATA_PATH, TRAIN_LABELS_PATH, train_data_and_labels);
-
     std::vector<Vector<INPUT_DIMENSION>> test_data;
     std::vector<int> test_predictions;
-
+    train_data_and_labels.reserve(TRAIN_SAMPLE_SIZE);
     test_data.reserve(TEST_SAMPLE_SIZE);
     test_predictions.reserve(TEST_SAMPLE_SIZE);
 
-    load_test_data<Vector<INPUT_DIMENSION>, TEST_SAMPLE_SIZE>(TEST_DATA_PATH, test_data);
+    std::cout << "Loading training data and labels...\n";
+
+    load_train_data_and_labels<Vector<INPUT_DIMENSION>, Vector<OUTPUT_DIMENSION>, TRAIN_SAMPLE_SIZE>(
+        TRAIN_DATA_PATH, TRAIN_LABELS_PATH, train_data_and_labels);
 
     auto mnist_network = Network<InputLayer<INPUT_DIMENSION>, HiddenLayer<70>, OutputLayer<OUTPUT_DIMENSION>>(gen);
 
+    std::cout << "Training network...\n";
+
     mnist_network.fit<TRAIN_SAMPLE_SIZE, 32, 128>(train_data_and_labels, 0.15f, 0.4f, 0.0f);
 
+    std::cout << "Loading test data...\n";
+
+    load_test_data<Vector<INPUT_DIMENSION>, TEST_SAMPLE_SIZE>(TEST_DATA_PATH, test_data);
+
+    std::cout << "Predicting test labels...\n";
+
     mnist_network.predict(test_data, test_predictions);
+
+    std::cout << "Saving predictions...\n";
 
     std::ofstream predictions_file("../data/predictions.csv");
 
     for (int i : test_predictions) predictions_file << i << "\n";
 
     predictions_file.close();
+
+    std::cout << "Done!\n";
 }
 
 int main() {
