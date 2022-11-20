@@ -25,7 +25,7 @@ struct Matrix {
     inline Matrix<H, W> &operator+=(const Matrix<H, W> &other) {
         #pragma clang loop vectorize(assume_safety)
         for (size_t i = 0; i < H; i++)
-            #pragma clang loop unroll_count(10)
+            #pragma clang loop unroll_count(2)
             for (size_t j = 0; j < W; j++) at(i, j) += other.at(i, j);
         return *this;
     };
@@ -33,7 +33,7 @@ struct Matrix {
     inline Matrix<H, W> &operator-=(const Matrix<H, W> &other) {
         #pragma clang loop vectorize(assume_safety)
         for (size_t i = 0; i < H; i++)
-            #pragma clang loop unroll_count(10)
+            #pragma clang loop unroll_count(2)
             for (size_t j = 0; j < W; j++) at(i, j) -= other.at(i, j);
         return *this;
     };
@@ -50,7 +50,7 @@ auto &dot_matrix_vector_transposed(const Matrix<H, W> &m, const Vector<W> &v, Ve
     out.zero();
     #pragma clang loop vectorize(assume_safety)
     for (size_t h = 0; h < H; ++h)
-        #pragma clang loop unroll_count(10)
+        #pragma clang loop unroll_count(2)
         for (size_t w = 0; w < W; ++w) out.vector[h] += m.at(h, w) * v[w];
 
     return out;
@@ -60,7 +60,7 @@ template <size_t H, size_t W>
 auto &dot_vector_transposed_vector(const Vector<H> &hv, const Vector<W> &wv, Matrix<H, W> &out) {
     #pragma clang loop vectorize(assume_safety)
     for (size_t h = 0; h < H; ++h)
-        #pragma clang loop unroll_count(10)
+        #pragma clang loop unroll_count(2)
         for (size_t w = 0; w < W; ++w) out.at(h, w) = hv[h] * wv[w];
     return out;
 }
@@ -70,7 +70,7 @@ auto &dot_matrix_transposed_vector(const Matrix<H, W> &m, const Vector<H> &v, Ve
     out.zero();
     #pragma clang loop vectorize(assume_safety)
     for (size_t h = 0; h < H; ++h)
-        #pragma clang loop unroll_count(10)
+        #pragma clang loop unroll_count(2)
         for (size_t w = 0; w < W; ++w) out.vector[w] += m.at(h, w) * v.vector[h];
     return out;
 }

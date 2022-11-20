@@ -24,49 +24,49 @@ struct Vector {
 
     Vector<N>& operator+(const Vector<N>& other) {
         #pragma clang loop vectorize(assume_safety)
-        #pragma clang loop unroll_count(10)
+        #pragma clang loop unroll_count(2)
         for (size_t i = 0; i < N; i++) vector[i] += other[i];
         return *this;
     }
 
     Vector<N>& operator+=(const Vector<N>& other) {
         #pragma clang loop vectorize(assume_safety)
-        #pragma clang loop unroll_count(10)
+        #pragma clang loop unroll_count(2)
         for (size_t i = 0; i < N; i++) vector[i] += other.vector[i];
         return *this;
     }
 
     Vector<N> operator-(Vector<N> other) {
         #pragma clang loop vectorize(assume_safety)
-        #pragma clang loop unroll_count(10)
+        #pragma clang loop unroll_count(2)
         for (size_t i = 0; i < N; i++) vector[i] -= other.vector[i];
         return *this;
     }
 
     Vector<N> operator-=(Vector<N> other) {
         #pragma clang loop vectorize(assume_safety)
-        #pragma clang loop unroll_count(10)
+        #pragma clang loop unroll_count(2)
         for (size_t i = 0; i < N; i++) vector[i] -= other.vector[i];
         return *this;
     }
 
     Vector<N> operator*(Vector<N> other) {
         #pragma clang loop vectorize(assume_safety)
-        #pragma clang loop unroll_count(10)
+        #pragma clang loop unroll_count(2)
         for (size_t i = 0; i < N; i++) vector[i] *= other.vector[i];
         return *this;
     }
 
     Vector<N> operator*=(Vector<N> other) {
         #pragma clang loop vectorize(assume_safety)
-        #pragma clang loop unroll_count(10)
+        #pragma clang loop unroll_count(2)
         for (size_t i = 0; i < N; i++) vector[i] *= other.vector[i];
         return *this;
     }
 
     Vector<N>& operator*=(data_t k) {
         #pragma clang loop vectorize(assume_safety)
-        #pragma clang loop unroll_count(10)
+        #pragma clang loop unroll_count(2)
         for (double& d : vector) d *= k;
 
         return *this;
@@ -74,7 +74,7 @@ struct Vector {
 
     Vector<N> operator*(float k) {
         #pragma clang loop vectorize(assume_safety)
-        #pragma clang loop unroll_count(10)
+        #pragma clang loop unroll_count(2)
         for (auto& v : vector) v *= k;
         return *this;
     }
@@ -90,7 +90,7 @@ struct Vector {
 template <typename F, typename V>
 auto map(const F& f, const V& v, V& out) {
     #pragma clang loop vectorize(assume_safety)
-    #pragma clang loop unroll_count(10)
+    #pragma clang loop unroll_count(2)
     for (size_t i = 0; i < V::size; ++i) out.vector[i] = f(v.vector[i]);
     return v;
 }
