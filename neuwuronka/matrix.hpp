@@ -14,7 +14,10 @@ template <size_t H, size_t W>
 struct Matrix {
     static constexpr size_t height = H;
     static constexpr size_t width = W;
-    std::array<float, H * W> matrix;
+    std::vector<float> matrix;
+
+    Matrix()
+        : matrix(H * W) {}
 
     void zero() { for (auto &v : matrix) v = 0; }
 

@@ -6,21 +6,23 @@
 #define NEUWURONKA_VECTOR_HPP
 
 #include <array>
+#include <vector>
 
-template <size_t N, typename data_t = float>
+template <size_t N>
 struct Vector {
     static constexpr size_t size = N;
-    std::array<data_t, N> vector;
+    std::vector<float> vector;
 
-    Vector() = default;
+    Vector()
+    :  vector(N) {}
 
     void zero() {
         for (auto& v : vector) v = 0.0f;
     }
 
-    data_t operator[](size_t i) const { return vector[i]; }
+    float operator[](size_t i) const { return vector[i]; }
 
-    data_t& operator[](size_t i) { return vector[i]; }
+    float& operator[](size_t i) { return vector[i]; }
 
     Vector<N>& operator+(const Vector<N>& other) {
         #pragma clang loop vectorize(assume_safety)
@@ -64,7 +66,7 @@ struct Vector {
         return *this;
     }
 
-    Vector<N>& operator*=(data_t k) {
+    Vector<N>& operator*=(float k) {
         #pragma clang loop vectorize(assume_safety)
         #pragma clang loop unroll_count(2)
         for (double& d : vector) d *= k;

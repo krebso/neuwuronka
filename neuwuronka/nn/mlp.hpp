@@ -12,16 +12,16 @@
 #include <tuple>
 #include <vector>
 
-#include "matrix.hpp"
+#include "../matrix.hpp"
 
 #if defined(__clang__)
 #  pragma clang diagnostic push
 #  pragma clang diagnostic ignored "-Wpass-failed"
 #endif
 
-// Each network is constructed using layers
+// Each MLP is constructed using layers
 template <size_t NEURONS, typename N = float>
-struct Layer {
+struct _Layer {
     static constexpr size_t size = NEURONS;
     static constexpr bool input = false;
     static constexpr bool output = false;
@@ -34,26 +34,28 @@ struct Layer {
 // And yes, it is completely useless from technical point of view, BUT when you
 // specify the network architecture, you can use proper term.
 template <size_t NEURONS, typename N = float>
-struct HiddenLayer : Layer<NEURONS> {};
+struct HiddenLayer : _Layer<NEURONS> {};
 
 template <size_t NEURONS, typename N = float>
-struct InputLayer : Layer<NEURONS> {
+struct InputLayer : _Layer<NEURONS> {
     static constexpr bool input = true;
+    // activation function is technically identity, but we do not use it in the code,
+    // as in the first layer -> layer, we take the input directly, so no need
 };
 
 template <size_t NEURONS, typename N = float>
-struct OutputLayer : Layer<NEURONS> {
+struct OutputLayer : _Layer<NEURONS> {
     static constexpr bool output = true;
 };
 
 
 // Interface for the whole network
 template <typename... args>
-class Network;
+class MLP;
 
 template <typename previous_layer, typename current_layer, typename... args>
-struct Network<previous_layer, current_layer, args...> {
-    using network_t = Network<current_layer, args...>;
+struct MLP<previous_layer, current_layer, args...> {
+    using network_t = MLP<current_layer, args...>;
     using input_t = Vector<previous_layer::size>;
     using output_t = Vector<current_layer::size>;
     using predict_t = typename network_t::predict_t;
@@ -203,7 +205,7 @@ struct Network<previous_layer, current_layer, args...> {
         return network.feedforward(activation);
     }
 
-    explicit Network(std::mt19937 &gen)
+    explicit MLP(std::mt19937 &gen)
         : network(gen),
           weighted_input(),
           activation(),
@@ -243,12 +245,12 @@ struct Network<previous_layer, current_layer, args...> {
 };
 
 template <typename output_layer>
-struct Network<output_layer> {
+struct MLP<output_layer> {
     using predict_t = Vector<output_layer::size>;
 
     predict_t activation;
 
-    explicit Network(std::mt19937 &) : activation(){};
+    explicit MLP(std::mt19937 &) : activation(){};
 
     predict_t feedforward(const predict_t &input) { return softmax(input, activation); }
 };

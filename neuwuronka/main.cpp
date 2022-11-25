@@ -6,7 +6,7 @@
 #include <iostream>
 #include <vector>
 
-#include "network.hpp"
+#include "nn/mlp.hpp"
 
 template <typename input_t, typename output_t, size_t NUM_SAMPLES>
 static std::vector<std::tuple<input_t, output_t>>& load_train_data_and_labels(
@@ -23,11 +23,11 @@ static std::vector<std::tuple<input_t, output_t>>& load_train_data_and_labels(
         for (size_t j = 0; j < input_t::size - 1; ++j) {
             data >> pixel;
             data >> delim;
-            std::get<0>(out[i])[j] = static_cast<float>(pixel) / 256.0;
+            std::get<0>(out[i])[j] = static_cast<float>(pixel) / 255.0;
         }
         data >> pixel;
         data >> std::ws;
-        std::get<0>(out[i])[input_t::size - 1] = static_cast<float>(pixel) / 256.0;
+        std::get<0>(out[i])[input_t::size - 1] = static_cast<float>(pixel) / 255.0;
 
         labels >> label;
         labels >> std::ws;
@@ -52,11 +52,11 @@ static std::vector<V>& load_test_data(const char* const data_path, std::vector<V
         for (size_t j = 0; j < V::size - 1; ++j) {
             data >> pixel;
             data >> delim;
-            out[i].vector[j] = static_cast<float>(pixel) / 256.0;
+            out[i].vector[j] = static_cast<float>(pixel) / 255.0;
         }
         data >> pixel;
         data >> std::ws;
-        out[i].vector[V::size - 1] = static_cast<float>(pixel) / 256.0;
+        out[i].vector[V::size - 1] = static_cast<float>(pixel) / 255.0;
     }
 
     data.close();
@@ -67,14 +67,15 @@ static std::vector<V>& load_test_data(const char* const data_path, std::vector<V
 void xor_network() {
     std::vector<std::tuple<Vector<2>, Vector<2>>> xor_data_and_labels;
 
-    xor_data_and_labels.push_back({{1, 1}, {1, 0}});
-    xor_data_and_labels.push_back({{0, 0}, {1, 0}});
-    xor_data_and_labels.push_back({{1, 0}, {0, 1}});
-    xor_data_and_labels.push_back({{0, 1}, {0, 1}});
+    // FIXME
+    // xor_data_and_labels.push_back({{1, 1}, {1, 0}});
+    // xor_data_and_labels.push_back({{0, 0}, {1, 0}});
+    // xor_data_and_labels.push_back({{1, 0}, {0, 1}});
+    // xor_data_and_labels.push_back({{0, 1}, {0, 1}});
 
     std::mt19937 gen(42);  // NOLINT
 
-    auto xor_network = Network<InputLayer<2>, HiddenLayer<2>, OutputLayer<2>>(gen);
+    auto xor_network = MLP<InputLayer<2>, HiddenLayer<2>, OutputLayer<2>>(gen);
 
     // check whether the feedforward works, for this set of weights, the network correctly classifies the
     // input booleans, where index of answer is the bool value
@@ -94,14 +95,14 @@ void xor_network() {
     // feedforward works, try the training
     xor_network.fit<4, 100, 1>(xor_data_and_labels, 4.0f, 0.0f, 0.0f);
 
-    auto x = xor_network.predict(Vector<2>{1, 1});
-    std::cout << "[1, 1] -> " << x << "\n";
-    x = xor_network.predict(Vector<2>{0, 0});
-    std::cout << "[0, 0] -> " << x << "\n";
-    x = xor_network.predict(Vector<2>{0, 1});
-    std::cout << "[0, 1] -> " << x << "\n";
-    x = xor_network.predict(Vector<2>{1, 0});
-    std::cout << "[1, 0] -> " << x << "\n";
+    // auto x = xor_network.predict(Vector<2>{1, 1});
+    // std::cout << "[1, 1] -> " << x << "\n";
+    // x = xor_network.predict(Vector<2>{0, 0});
+    // std::cout << "[0, 0] -> " << x << "\n";
+    // x = xor_network.predict(Vector<2>{0, 1});
+    // std::cout << "[0, 1] -> " << x << "\n";
+    // x = xor_network.predict(Vector<2>{1, 0});
+    // std::cout << "[1, 0] -> " << x << "\n";
 }
 
 static void mnist_network() {
@@ -133,11 +134,11 @@ static void mnist_network() {
     load_train_data_and_labels<Vector<INPUT_DIMENSION>, Vector<OUTPUT_DIMENSION>, TRAIN_SAMPLE_SIZE>(
         TRAIN_DATA_PATH, TRAIN_LABELS_PATH, train_data_and_labels);
 
-    auto mnist_network = Network<InputLayer<INPUT_DIMENSION>, HiddenLayer<70>, OutputLayer<OUTPUT_DIMENSION>>(gen);
+    auto mnist_network = MLP<InputLayer<INPUT_DIMENSION>, HiddenLayer<256>, HiddenLayer<128>, HiddenLayer<64>, OutputLayer<OUTPUT_DIMENSION>>(gen);
 
     std::cout << "Training network...\n";
 
-    mnist_network.fit<TRAIN_SAMPLE_SIZE, 32, 128>(train_data_and_labels, 0.15f, 0.4f, 0.0f);
+    mnist_network.fit<TRAIN_SAMPLE_SIZE, 13, 64>(train_data_and_labels, 0.01f, 0.8f, 0.001f);
 
     std::cout << "Loading test data...\n";
 

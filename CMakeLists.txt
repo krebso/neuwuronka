@@ -3,7 +3,7 @@ project(neuwuronka)
 set(CMAKE_CXX_STANDARD 17)            # Enable c++17 standard
 
 # Add main.cpp file of project root directory as source file
-set(SOURCE_FILES src/main.cpp)
+set(SOURCE_FILES neuwuronka/main.cpp)
 
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -16,4 +16,4 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 
 
 # Add executable target with source files listed in SOURCE_FILES variable
-add_executable(neuwuronka ${SOURCE_FILES})
+add_executable(nn ${SOURCE_FILES})
