@@ -12,7 +12,7 @@
 #include <tuple>
 #include <vector>
 
-#include "../matrix.hpp"
+#include "../struct.hpp"
 
 #if defined(__clang__)
 #  pragma clang diagnostic push
