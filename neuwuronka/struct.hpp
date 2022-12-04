@@ -6,7 +6,11 @@
 #define NEUWURONKA_MATRIX_HPP
 
 #include <vector>
+
+#include "/opt/homebrew/Cellar/libomp/15.0.6/include/omp.h"
 #include "math.hpp"
+
+constexpr size_t THREADS = 4;
 
 template <size_t N>
 struct Vector {
@@ -16,68 +20,92 @@ struct Vector {
   Vector() : vector(N) {}
 
   void zero() {
-    for (auto &v : vector) v = 0.0f;
+#pragma omp parallel num_threads(THREADS)
+    {
+#pragma omp for
+        for (size_t i = 0; i < N; ++i) vector[i] = 0.0f;
+    }
   }
 
   float operator[](size_t i) const { return vector[i]; }
 
   float &operator[](size_t i) { return vector[i]; }
 
-  Vector<N> &operator+(const Vector<N> &other) {
-#pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-    for (size_t i = 0; i < N; i++) vector[i] += other[i];
+  Vector<N> &operator=(const Vector<N> &other) {
+    vector = other.vector;
     return *this;
+  }
+
+  Vector<N> &operator+(const Vector<N> &other) {
+#pragma omp parallel num_threads(THREADS)
+    {
+#pragma omp for
+        for (size_t i = 0; i < N; i++) vector[i] += other[i];
+      return *this;
+    }
   }
 
   Vector<N> &operator+=(const Vector<N> &other) {
-#pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-    for (size_t i = 0; i < N; i++) vector[i] += other.vector[i];
-    return *this;
+#pragma omp parallel num_threads(THREADS)
+    {
+#pragma omp for
+        for (size_t i = 0; i < N; i++) vector[i] += other[i];
+      return *this;
+    }
   }
 
-  Vector<N> operator-(Vector<N> other) {
-#pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-    for (size_t i = 0; i < N; i++) vector[i] -= other.vector[i];
-    return *this;
+  Vector<N> &operator-(Vector<N> other) {
+#pragma omp parallel num_threads(THREADS)
+    {
+#pragma omp for
+        for (size_t i = 0; i < N; i++) vector[i] -= other[i];
+      return *this;
+    }
   }
 
-  Vector<N> operator-=(Vector<N> other) {
-#pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-    for (size_t i = 0; i < N; i++) vector[i] -= other.vector[i];
-    return *this;
+  Vector<N> &operator-=(Vector<N> other) {
+#pragma omp parallel num_threads(THREADS)
+    {
+#pragma omp for
+        for (size_t i = 0; i < N; i++) vector[i] -= other[i];
+      return *this;
+    }
   }
 
-  Vector<N> operator*(Vector<N> other) {
-#pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-    for (size_t i = 0; i < N; i++) vector[i] *= other.vector[i];
-    return *this;
+  Vector<N> &operator*(Vector<N> other) {
+#pragma omp parallel num_threads(THREADS)
+    {
+#pragma omp for
+        for (size_t i = 0; i < N; i++) vector[i] *= other[i];
+        return *this;
+    }
   }
 
-  Vector<N> operator*=(Vector<N> other) {
-#pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-    for (size_t i = 0; i < N; i++) vector[i] *= other.vector[i];
-    return *this;
+  Vector<N> &operator*=(Vector<N> other) {
+#pragma omp parallel num_threads(THREADS)
+      {
+#pragma omp for
+              for (size_t i = 0; i < N; i++) vector[i] *= other[i];
+          return *this;
+      }
   }
 
   Vector<N> &operator*=(float k) {
-#pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-    for (double &d : vector) d *= k;
-
-    return *this;
+#pragma omp parallel num_threads(THREADS)
+      {
+#pragma omp for
+              for (size_t i = 0; i < N; ++i) vector[i] *= k;
+          return *this;
+      }
   }
 
-  Vector<N> operator*(float k) {
-#pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-    for (auto &v : vector) v *= k;
-    return *this;
+  Vector<N> &operator*(float k) {
+#pragma omp parallel num_threads(THREADS)
+      {
+#pragma omp for
+              for (size_t i = 0; i < N; ++i) vector[i] *= k;
+          return *this;
+      }
   }
 
   [[nodiscard]] size_t imax() const {
@@ -85,6 +113,16 @@ struct Vector {
     for (size_t j = 1; j < size; ++j)
       if (vector[j] > vector[i]) i = j;
     return i;
+  }
+  auto to_string() const {
+    std::string sep;
+    std::string r = "[";
+    for (auto v : vector) {
+      r += sep + std::to_string(v);
+      sep = ", ";
+    }
+    r += "]";
+    return r;
   }
 };
 
@@ -95,6 +133,11 @@ struct Matrix {
   std::vector<float> matrix;
 
   Matrix() : matrix(H * W) {}
+
+  Matrix<H, W> &operator=(const Matrix<H, W> &other) {
+    matrix = other.matrix;
+    return *this;
+  }
 
   void zero() {
     for (auto &v : matrix) v = 0;
@@ -107,34 +150,68 @@ struct Matrix {
   }
 
   inline Matrix<H, W> &operator+=(const Matrix<H, W> &other) {
-#pragma clang loop vectorize(assume_safety)
-    for (size_t i = 0; i < H; i++)
-#pragma clang loop unroll_count(2)
-      for (size_t j = 0; j < W; j++) at(i, j) += other.at(i, j);
-    return *this;
+#pragma omp parallel num_threads(THREADS)
+      {
+#pragma omp for collapse(2)
+          for (size_t i = 0; i < H; i++)
+              for (size_t j = 0; j < W; j++) at(i, j) += other.at(i, j);
+          return *this;
+      }
   };
 
   inline Matrix<H, W> &operator-=(const Matrix<H, W> &other) {
-#pragma clang loop vectorize(assume_safety)
-    for (size_t i = 0; i < H; i++)
-#pragma clang loop unroll_count(2)
-      for (size_t j = 0; j < W; j++) at(i, j) -= other.at(i, j);
+#pragma omp parallel num_threads(THREADS)
+      {
+#pragma omp for collapse(2)
+          for (size_t i = 0; i < H; i++)
+              for (size_t j = 0; j < W; j++) at(i, j) -= other.at(i, j);
     return *this;
+      }
   };
 
   inline auto &operator*(float k) {
-#pragma clang loop vectorize(assume_safety)
-    for (auto &v : matrix) v *= k;
-    return *this;
+#pragma omp parallel num_threads(THREADS)
+      {
+#pragma omp for
+          for (size_t i = 0; i < H * W; ++i) matrix[i] *= k;
+          return *this;
+      }
+  }
+
+  inline auto &operator*=(float k) {
+#pragma omp parallel num_threads(THREADS)
+      {
+#pragma omp for
+          for (size_t i = 0; i < H * W; ++i) matrix[i] *= k;
+          return *this;
+      }
+  }
+
+  auto to_string() const {
+    std::string sep;
+    std::string res;
+
+    for (size_t h = 0; h < height; ++h) {
+      sep = "";
+      for (size_t w = 0; w < width; ++w) {
+        res += sep + std::to_string(this->at(h, w));
+        sep = ", ";
+      }
+      res += "\n";
+    }
+
+    return res;
   }
 };
 
 template <typename F, typename V>
-auto map(const F &f, const V &v, V &out) {
-#pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-  for (size_t i = 0; i < V::size; ++i) out.vector[i] = f(v.vector[i]);
+auto &map(const F &f, const V &v, V &out) {
+#pragma omp parallel num_threads(THREADS)
+    {
+#pragma omp for
+        for (size_t i = 0; i < V::size; ++i) out.vector[i] = f(v.vector[i]);
   return v;
+    }
 }
 
 template <size_t S>
@@ -147,34 +224,39 @@ constexpr Vector<S> onehot(size_t i) noexcept {
 template <size_t H, size_t W>
 auto &dot_matrix_vector_transposed(const Matrix<H, W> &m, const Vector<W> &v,
                                    Vector<H> &out) {
-  out.zero();
-#pragma clang loop vectorize(assume_safety)
-  for (size_t h = 0; h < H; ++h)
-#pragma clang loop unroll_count(2)
-    for (size_t w = 0; w < W; ++w) out.vector[h] += m.at(h, w) * v[w];
-
-  return out;
+#pragma omp parallel num_threads(THREADS)
+    {
+        out.zero();
+#pragma omp for collapse(2)
+        for (size_t h = 0; h < H; ++h)
+            for (size_t w = 0; w < W; ++w) out.vector[h] += m.at(h, w) * v[w];
+        return out;
+    }
 }
 
 template <size_t H, size_t W>
 auto &dot_vector_transposed_vector(const Vector<H> &hv, const Vector<W> &wv,
                                    Matrix<H, W> &out) {
-#pragma clang loop vectorize(assume_safety)
-  for (size_t h = 0; h < H; ++h)
-#pragma clang loop unroll_count(2)
-    for (size_t w = 0; w < W; ++w) out.at(h, w) = hv[h] * wv[w];
-  return out;
+#pragma omp parallel num_threads(THREADS)
+    {
+#pragma omp for collapse(2)
+        for (size_t h = 0; h < H; ++h)
+            for (size_t w = 0; w < W; ++w) out.at(h, w) = hv[h] * wv[w];
+        return out;
+    }
 }
 
 template <size_t H, size_t W>
 auto &dot_matrix_transposed_vector(const Matrix<H, W> &m, const Vector<H> &v,
                                    Vector<W> &out) {
-  out.zero();
-#pragma clang loop vectorize(assume_safety)
+#pragma omp parallel num_threads(THREADS)
+    {
+        out.zero();
+#pragma omp for collapse(2)
   for (size_t h = 0; h < H; ++h)
-#pragma clang loop unroll_count(2)
     for (size_t w = 0; w < W; ++w) out.vector[w] += m.at(h, w) * v.vector[h];
   return out;
+        }
 }
 
 template <size_t S>

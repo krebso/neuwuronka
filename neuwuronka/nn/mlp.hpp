@@ -14,10 +14,6 @@
 
 #include "../struct.hpp"
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpass-failed"
-#endif
 
 namespace nn {
 
@@ -101,8 +97,8 @@ struct MLP<previous_layer, activation_function, current_layer, args...> {
     momentum_b += grad_b * learning_rate;
 
     // update weights and biases
-    weights -= momentum_w;
-    biases -= momentum_b;
+    weights -= grad_w; // momentum_w;
+    biases -= grad_b; // momentum_b;
 
     // update the rest of the network
     if constexpr (!current_layer::output)
@@ -120,14 +116,13 @@ struct MLP<previous_layer, activation_function, current_layer, args...> {
 
     // for each training sample
     for (size_t i = start; i < end; ++i) {
-      auto x = std::get<0>(data_and_labels[i]);
+      auto &x = std::get<0>(data_and_labels[i]);
 
       // set activations, (both actual and prime) and weighted_inputs
       forward(x);
 
       // compute the gradient using backward pass
-      backward(std::get<0>(data_and_labels[i]),
-               std::get<1>(data_and_labels[i]));
+      backward(x, std::get<1>(data_and_labels[i]));
     }
 
     // update the weights and biases recursively for whole network
@@ -164,17 +159,22 @@ struct MLP<previous_layer, activation_function, current_layer, args...> {
   const biases_t &backward(const input_t &input, const predict_t &predict) {
     if constexpr (current_layer::output) {
       cross_entropy_cost_function_prime(activation, predict, delta_grad_b);
+      std::cout << "Input vector: " << activation.to_string() << "\n";
+      std::cout << "Gradient vector: " << predict.to_string() << "\n";
+      std::cout << "Softmax grad: " << delta_grad_b.to_string() << "\n";
     } else {
       // get the delta from next layer
       auto &next_delta_nabla_b = network.backward(activation, predict);
 
-      // multiply the corresponding matrix
+      // compute the gradient 
       dot_matrix_transposed_vector(network.weights, next_delta_nabla_b,
                                    delta_grad_b);
+      std::cout << "Upper layer grad: " << delta_grad_b.to_string() << "\n";
     }
 
     // multiply with the derivative of activation function
     delta_grad_b *= activation_prime;
+    std::cout << "ReLU grad: " << delta_grad_b.to_string() << "\n";
 
     // compute the delta for weights
     dot_vector_transposed_vector(delta_grad_b, input, delta_grad_w);
@@ -184,6 +184,7 @@ struct MLP<previous_layer, activation_function, current_layer, args...> {
     grad_w += delta_grad_w;
 
     // send the delta for layer below
+    std::cout << "My grad: " << delta_grad_b.to_string() << "\n";
     return delta_grad_b;
   }
 
@@ -192,8 +193,12 @@ struct MLP<previous_layer, activation_function, current_layer, args...> {
     dot_matrix_vector_transposed(weights, input, weighted_input);
     weighted_input += biases;
 
+    std::cout << "Linear layer: " << weighted_input.to_string() << "\n";
+
     // apply activation function
     map(activation_function::f, weighted_input, activation);
+
+    std::cout << "ReLU layer: " << activation.to_string() << "\n";
 
     // pre-compute first derivative of activation function, will be used during
     // backward pass
@@ -223,7 +228,7 @@ struct MLP<previous_layer, activation_function, current_layer, args...> {
       init_weights_and_biases(distribution, gen);
     } else {  // He
       auto distribution = std::normal_distribution<float>(
-          0.0, std::sqrt(2.0 / previous_layer::size));
+          0.0, std::sqrt(2.0f / static_cast<float>(previous_layer::size)));
       init_weights_and_biases(distribution, gen);
     }
   }
@@ -253,7 +258,10 @@ struct MLP<output_layer> {
   explicit MLP(std::mt19937 &) : activation(){};
 
   predict_t forward(const predict_t &input) {
-    return softmax(input, activation);
+    // return input;
+    softmax(input, activation);
+    std::cout << "Softmax layer: " << activation.to_string() << "\n";
+    return activation;
   }
 };
 }  // namespace nn
@@ -261,7 +269,7 @@ struct MLP<output_layer> {
 #endif  // NEUWURONKA_NETWORK_HPP
 
 template <size_t S>
-inline auto &cross_entropy_cost_function_prime(const Vector<S> &activation,
+inline const auto &cross_entropy_cost_function_prime(const Vector<S> &activation,
                                                const Vector<S> &y,
                                                Vector<S> &out) {
   for (size_t i = 0; i < S; ++i)
