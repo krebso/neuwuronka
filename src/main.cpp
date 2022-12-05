@@ -95,7 +95,7 @@ void xor_network() {
     // xor_network.network.biases = {1.0f, 0.0f};
     
     // feedforward works, try the training
-    xor_network.fit<4, 100, 1>(xor_data_and_labels);
+    xor_network.fit<4, 1000, 1>(xor_data_and_labels, 0.4);
 
     auto x = xor_network.predict(Vector<2>{1, 1});
     std::cout << "[1, 1] -> " << x << "\n";
@@ -150,9 +150,18 @@ void mnist_network() {
     predictions_file.close();
 }
 
+void test_random() {
+    std::mt19937 gen(42);
+
+    std::cout << gen() << "\n";
+    std::cout << gen() << "\n";
+    std::cout << gen() << "\n";
+}
+
 int main() {
     // xor_network();
     mnist_network();
+    // test_random();
 
     return 0;
 }

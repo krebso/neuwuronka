@@ -200,7 +200,7 @@ struct Network<previous_layer, current_layer, args...> {
           delta_nabla_b(),
           momentum_nabla_w(),
           momentum_nabla_b() {
-        if constexpr (true || current_layer::output) {  // Xavier
+        if constexpr (false|| current_layer::output) {  // Xavier
             float lower = -(1.0 / std::sqrt(previous_layer::size));
             float upper = (1.0 / std::sqrt(previous_layer::size));
             auto distribution = std::uniform_real_distribution<float>(lower, upper);
@@ -235,7 +235,10 @@ class Network<output_layer> {
     explicit Network(std::mt19937 &) : activation(){};
 
     predict_t feedforward(const predict_t &input) {
-        return softmax(input, activation);
+        softmax(input, activation);
+        std::cout << activation.to_string() << "\n";
+        throw 1;
+        return activation;
     }
 
     void zero_nablas(){};
