@@ -75,35 +75,27 @@ void xor_network() {
   // xor_data_and_labels.push_back({{1, 0}, {0, 1}});
   // xor_data_and_labels.push_back({{0, 1}, {0, 1}});
 
-  std::mt19937 gen(42);  // NOLINT
+    // std::mt19937 gen(42);  // NOLINT
 
-  auto xor_network = nn::MLP<nn::Layer<2, true>, 
-                             nn::ReLU,
-                             nn::Layer<2>,
-                             nn::ReLU,
-                             nn::Layer<2, false, true>
-                            >(gen);
+    // auto xor_network = MLP<InputLayer<2>, HiddenLayer<2>, OutputLayer<2>>(gen);
 
-  // check whether the feedforward works, for this set of weights, the network
-  // correctly classifies the input booleans, where index of answer is the bool
-  // value
+    // check whether the forward works, for this set of weights, the network correctly classifies the
+    // input booleans, where index of answer is the bool value
 
-  // xor_network.weights.at(0, 0) = 2.0f;
-  // xor_network.weights.at(0, 1) = -2.0f;
-  // xor_network.weights.at(1, 0) = -2.0f;
-  // xor_network.weights.at(1, 1) = 2.0f;
-  // xor_network.biases = {0.0f, 0.0f};
+    // xor_network.weights.at(0, 0) = 2.0f;
+    // xor_network.weights.at(0, 1) = -2.0f;
+    // xor_network.weights.at(1, 0) = -2.0f;
+    // xor_network.weights.at(1, 1) = 2.0f;
+    // xor_network.bias = {0.0f, 0.0f};
 
-  // xor_network.network.weights.at(0, 0) = -1.0f;
-  // xor_network.network.weights.at(0, 1) = -1.0f;
-  // xor_network.network.weights.at(1, 0) = 1.0f;
-  // xor_network.network.weights.at(1, 1) = 1.0f;
-  // xor_network.network.biases = {1.0f, 0.0f};
+    // xor_network.network.weights.at(0, 0) = -1.0f;
+    // xor_network.network.weights.at(0, 1) = -1.0f;
+    // xor_network.network.weights.at(1, 0) = 1.0f;
+    // xor_network.network.weights.at(1, 1) = 1.0f;
+    // xor_network.network.bias = {1.0f, 0.0f};
 
-  // feedforward works, try the training
-  // we surely do not want to violate the 1st rule of training :)
-  // https://twitter.com/karpathy/status/1013244313327681536
-  xor_network.fit<4, 1000, 1>(xor_data_and_labels, 4.0f, 0.0f, 0.0f);
+    // forward works, try the training
+    // xor_network.fit<4, 100, 1>(xor_data_and_labels, 4.0f, 0.0f, 0.0f);
 
   // auto x = xor_network.predict(Vector<2>{1, 1});
   // std::cout << "[1, 1] -> " << x << "\n";
@@ -146,15 +138,7 @@ static void mnist_network() {
                              TRAIN_SAMPLE_SIZE>(
       TRAIN_DATA_PATH, TRAIN_LABELS_PATH, train_data_and_labels);
 
-  auto mnist_network = nn::MLP<nn::Layer<INPUT_DIMENSION, true>,
-                               nn::ReLU,
-                               nn::Layer<256>,
-                               nn::ReLU,
-                               nn::Layer<128>,
-                               nn::ReLU,
-                               nn::Layer<64>,
-                               nn::ReLU,
-                               nn::Layer<OUTPUT_DIMENSION, false, true>>(gen);
+    auto mnist_network = MLP<Layer<INPUT_DIMENSION, 70, true>, Layer<70, 10>>(gen);
 
   std::cout << "Training network...\n";
 

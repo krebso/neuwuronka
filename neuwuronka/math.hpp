@@ -9,11 +9,6 @@
 #include <limits>
 
 template <typename N>
-inline N one_zero(N n) {
-  return n > 0.0f ? 1.0f : 0.0f;
-}
-
-template <typename N>
 inline N relu(N n) {
   return std::max(n, 0.0f);
 }

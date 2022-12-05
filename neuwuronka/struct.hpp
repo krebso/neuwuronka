@@ -2,8 +2,8 @@
 // Created by Martin Krebs on 15/10/2022.
 //
 
-#ifndef NEUWURONKA_MATRIX_HPP
-#define NEUWURONKA_MATRIX_HPP
+#ifndef NEUWURONKA_STRUCT_HPP
+#define NEUWURONKA_STRUCT_HPP
 
 #include <vector>
 
@@ -39,28 +39,28 @@ struct Vector {
         return *this;
     }
 
-    Vector<N> operator-(Vector<N> other) {
+    Vector<N>& operator-(Vector<N> other) {
 #pragma clang loop vectorize(assume_safety)
 #pragma clang loop unroll_count(2)
         for (size_t i = 0; i < N; i++) vector[i] -= other.vector[i];
         return *this;
     }
 
-    Vector<N> operator-=(Vector<N> other) {
+    Vector<N>& operator-=(Vector<N> other) {
 #pragma clang loop vectorize(assume_safety)
 #pragma clang loop unroll_count(2)
         for (size_t i = 0; i < N; i++) vector[i] -= other.vector[i];
         return *this;
     }
 
-    Vector<N> operator*(Vector<N> other) {
+    Vector<N>& operator*(Vector<N> other) {
 #pragma clang loop vectorize(assume_safety)
 #pragma clang loop unroll_count(2)
         for (size_t i = 0; i < N; i++) vector[i] *= other.vector[i];
         return *this;
     }
 
-    Vector<N> operator*=(Vector<N> other) {
+    Vector<N>& operator*=(Vector<N> other) {
 #pragma clang loop vectorize(assume_safety)
 #pragma clang loop unroll_count(2)
         for (size_t i = 0; i < N; i++) vector[i] *= other.vector[i];
@@ -75,7 +75,7 @@ struct Vector {
         return *this;
     }
 
-    Vector<N> operator*(float k) {
+    Vector<N>& operator*(float k) {
 #pragma clang loop vectorize(assume_safety)
 #pragma clang loop unroll_count(2)
         for (auto& v : vector) v *= k;
@@ -134,7 +134,7 @@ struct Matrix {
 };
 
 template <typename F, typename V>
-auto map(const F& f, const V& v, V& out) {
+auto &map(const F& f, const V& v, V& out) {
 #pragma clang loop vectorize(assume_safety)
 #pragma clang loop unroll_count(2)
     for (size_t i = 0; i < V::size; ++i) out.vector[i] = f(v.vector[i]);
@@ -178,4 +178,4 @@ auto &dot_matrix_transposed_vector(const Matrix<H, W> &m, const Vector<H> &v, Ve
     return out;
 }
 
-#endif  // NEUWURONKA_MATRIX_HPP
+#endif  // NEUWURONKA_STRUCT_HPP
