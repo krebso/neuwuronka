@@ -14,249 +14,197 @@
 
 #include "../struct.hpp"
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpass-failed"
-#endif
+// Each MLP is constructed using layers
 
 namespace nn {
+    template <size_t _in_features, size_t _out_features, bool _input = false>
+    struct Linear {
+        static constexpr size_t in_features = _in_features;
+        static constexpr size_t out_features = _out_features;
+        static constexpr bool input = _input;
 
-// convenience wrapper, so I can use the torch style
-struct Module {};
-struct AutoGradFunction : Module {};
+        static constexpr const auto& activation_function = relu<float>;
+        static constexpr const auto& activation_function_prime = relu_prime<float>;
+    };
 
-struct ReLU : AutoGradFunction {
-  static constexpr auto f = relu<float>;
-  static constexpr auto f_prime = relu_prime<float>;
-};
+    template <typename... args>
+    class MLP;
 
-// Each MLP is constructed using layers
-template <size_t NEURONS, bool _input = false, bool _output = false>
-struct Layer : Module {
-  static constexpr size_t size = NEURONS;
-  static constexpr bool input = _input;
-  static constexpr bool output = _output;
-};
+    template <typename module_t, typename... args>
+    struct MLP<module_t, args...> {
+        using network_t = MLP<args...>;
+        using input_t = Vector<module_t::in_features>;
+        using output_t = Vector<module_t::out_features>;
+        using weights_t = Matrix<module_t::out_features, module_t::in_features>;
+        using bias_t = output_t;
 
-// Interface for the whole network
-template <typename... args>
-class MLP;
-template <typename previous_layer, typename activation_function,
-          typename current_layer, typename... args>
-struct MLP<previous_layer, activation_function, current_layer, args...> {
-  using network_t = MLP<current_layer, args...>;
-  using input_t   = Vector<previous_layer::size>;
-  using output_t  = Vector<current_layer::size>;
-  using predict_t = typename network_t::predict_t;
-  using weights_t = Matrix<current_layer::size, previous_layer::size>;
-  using biases_t  = output_t;
+        network_t network;
 
-  network_t network;  // rest of the recursively defined network
+        output_t weighted_input;
+        output_t activation;
+        output_t activation_prime;
 
-  output_t  weighted_input;  // allows us to store inner potential vectors which
-                            // will be used during backward pass
-  output_t  activation;      // vector which is being passed to the next layer as
-                            // an input, also used during backward pass
+        weights_t weights;
+        bias_t    bias;
 
-  output_t  activation_prime;  // output vector for computing first derivative of
-                              // activation function
+        weights_t grad_w;
+        bias_t    grad_b;
 
-  weights_t weights;  // matrix of weights
-  biases_t  biases;    // vector of biases
+        weights_t momentum_w;
+        bias_t    momentum_b;
 
-  weights_t grad_w;  // this is our aggregator for storing the deltas through
-                      // one iteration of SGD
-  biases_t  grad_b;   // same as above, but for biases
+        weights_t delta_grad_w;
+        bias_t    delta_grad_b;
 
-  weights_t momentum_w;  // momentum weights history
-  biases_t  momentum_b;   // same as above for biases
+        inline void zero_grad() {
+            grad_b.zero();
+            grad_w.zero();
+            network.zero_grad();
+        }
 
-  weights_t delta_grad_w;  // pre-allocated output parameter, used during
-                            // back-prop for storing single delta
-  biases_t  delta_grad_b;   // same as above
+        inline void update(float learning_rate, float momentum) {
+            momentum_w *= momentum;
+            momentum_b *= momentum;
 
-  template <typename D, typename G>
-  void init_weights_and_biases(D &distribution, G &generator) {
-    // given desired initial weight distribution, init weights and biases
-    for (size_t h = 0; h < weights.height; ++h) {
-      for (size_t w = 0; w < weights.width; ++w)
-        weights.at(h, w) = distribution(generator);
-      biases[h] = distribution(generator);
-    }
-  }
+            momentum_w += grad_w * learning_rate;
+            momentum_b += grad_b * learning_rate;
 
-  void zero_grad() {
-    grad_b.zero();
-    grad_w.zero();
-    if constexpr (!current_layer::output) network.zero_grad();
-  }
+            weights -= momentum_w;
+            bias    -= momentum_b;
 
-  void update(float learning_rate, float momentum) {
-    // update the friction
-    momentum_w *momentum;
-    momentum_b *momentum;
+            network.update(learning_rate, momentum);
+        }
 
-    // update history with current nablas
-    momentum_w += grad_w * learning_rate;
-    momentum_b += grad_b * learning_rate;
+        template <typename predict_t>
+        void update_mini_batch(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, size_t start, size_t end,
+                               float learning_rate, float momentum) {
+            if constexpr (module_t::input) {
+                auto n = static_cast<float>(end - start);
 
-    // update weights and biases
-    weights -= momentum_w;
-    biases -= momentum_b;
+                zero_grad();
 
-    // update the rest of the network
-    if constexpr (!current_layer::output)
-      network.update(learning_rate, momentum);
-  }
+                static input_t store;
 
-  void update_mini_batch(
-      std::vector<std::tuple<input_t, predict_t>> &data_and_labels,
-      size_t start, size_t end, float learning_rate, float momentum) {
-    // num of samples in minibatch
-    auto n = static_cast<float>(end - start);
+                for (size_t i = start; i < end; ++i) {
+                    forward(std::get<0>(data_and_labels[i]));
+                    backward(std::get<0>(data_and_labels[i]), std::get<1>(data_and_labels[i]), store);
+                }
 
-    // recursively zero out both gradients
-    zero_grad();
+                update(learning_rate / n, momentum);
+            }
+        }
 
-    // for each training sample
-    for (size_t i = start; i < end; ++i) {
-      auto x = std::get<0>(data_and_labels[i]);
+        template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE, typename predict_t>
+        void SGD(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, float learning_rate, float momentum,
+                 float decay) {
+            if (module_t::input) {
+                std::mt19937 gen(42);  // NOLINT
+                auto lr = learning_rate;
 
-      // set activations, (both actual and prime) and weighted_inputs
-      forward(x);
+                for (size_t e = 0; e < EPOCHS; ++e) {
+                    std::cout << "Epoch " << e + 1 << "/" << EPOCHS << "\n";
+                    lr *= (1.0f / (1.0f + decay * static_cast<float>(e)));
+                    std::shuffle(data_and_labels.begin(), data_and_labels.end(), gen);
 
-      // compute the gradient using backward pass
-      backward(std::get<0>(data_and_labels[i]),
-               std::get<1>(data_and_labels[i]));
-    }
+                    for (size_t batch_index = 0; batch_index < NUM_SAMPLES; batch_index += BATCH_SIZE)
+                        update_mini_batch(data_and_labels, batch_index, std::min(NUM_SAMPLES, batch_index + BATCH_SIZE), lr,
+                                          momentum);
+                }
+            }
+        }
 
-    // update the weights and biases recursively for whole network
-    update(learning_rate / n, momentum);
-  }
+        template <typename predict_t>
+        input_t &backward(const input_t &input, const predict_t &predict, input_t &store) {
+            network.backward(activation, predict, delta_grad_b) * activation_prime;
+            dot_vector_transposed_vector(delta_grad_b, input, delta_grad_w);
+            grad_b += delta_grad_b;
+            grad_w += delta_grad_w;
+            return dot_matrix_transposed_vector(weights, delta_grad_b, store);
+        }
 
-  template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE>
-  void SGD(std::vector<std::tuple<input_t, predict_t>> &data_and_labels,
-           float learning_rate, float momentum, float decay) {
-    if (previous_layer::input) {
-      std::mt19937 gen(42);  // NOLINT
-      auto lr = learning_rate;
+        const auto &forward(const input_t &input) {
+            dot_matrix_vector_transposed(weights, input, weighted_input) + bias;
+            map(module_t::activation_function, weighted_input, activation);
+            map(module_t::activation_function_prime, weighted_input, activation_prime);
+            return network.forward(activation);
+        }
 
-      // in each epoch
-      for (size_t e = 0; e < EPOCHS; ++e) {
-        std::cout << "Epoch " << e + 1 << "/" << EPOCHS << "\n";
-        lr *= (1.0f / (1.0f + decay * static_cast<float>(e)));
+        explicit MLP(std::mt19937 &gen)
+            : network(gen),
+              weighted_input(),
+              activation(),
+              activation_prime(),
+              weights(),
+              bias(),
+              grad_w(),
+              grad_b(),
+              delta_grad_w(),
+              delta_grad_b(),
+              momentum_w(),
+              momentum_b() {
+            auto distribution = std::normal_distribution<float>(0.0, std::sqrt(2.0 / module_t::in_features));
+            for (size_t h = 0; h < weights.height; ++h) {
+                for (size_t w = 0; w < weights.width; ++w) weights.at(h, w) = distribution(gen);
+            }
+        }
 
-        // shuffle the data randomly
-        std::shuffle(data_and_labels.begin(), data_and_labels.end(), gen);
+        template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE, typename predict_t>
+        void fit(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, float learning_rate,
+                 float momentum, float decay) {
+            SGD<NUM_SAMPLES, EPOCHS, BATCH_SIZE>(data_and_labels, learning_rate, momentum, decay);
+        }
 
-        // for all mini-batches
-        for (size_t batch_index = 0; batch_index < NUM_SAMPLES;
-             batch_index += BATCH_SIZE)
+        auto predict(const input_t &v) { return forward(v).imax(); }
 
-          // perform gradient descent on single minibatch
-          update_mini_batch(data_and_labels, batch_index,
-                            std::min(NUM_SAMPLES, batch_index + BATCH_SIZE), lr,
-                            momentum);
-      }
-    }
-  }
+        template <typename input_t, typename predict_t>
+        auto &predict(const std::vector<input_t> &data, std::vector<predict_t> &out) {
+            for (const input_t &input : data) out.push_back(predict(input));
+            return out;
+        }
+    };
 
-  const biases_t &backward(const input_t &input, const predict_t &predict) {
-    if constexpr (current_layer::output) {
-      cross_entropy_cost_function_prime(activation, predict, delta_grad_b);
-    } else {
-      // get the delta from next layer
-      auto &next_delta_nabla_b = network.backward(activation, predict);
+    template <>
+    struct MLP<> {
+        explicit MLP(std::mt19937 &) {}
 
-      // multiply the corresponding matrix
-      dot_matrix_transposed_vector(network.weights, next_delta_nabla_b,
-                                   delta_grad_b);
-    }
+        template <typename predict_t>
+        inline const predict_t &forward(const predict_t &input) {
+            static predict_t activation;
+            return softmax(input, activation);
+        }
 
-    // multiply with the derivative of activation function
-    delta_grad_b *= activation_prime;
+        template <typename predict_t>
+        inline predict_t &backward(const predict_t &z, const predict_t &y, predict_t &store) {
+            return cross_entropy_cost_function_prime(z, y, store);
+        }
 
-    // compute the delta for weights
-    dot_vector_transposed_vector(delta_grad_b, input, delta_grad_w);
+        inline void zero_grad() {}
+        inline void update(float, float) {}
+    };
+}
 
-    // update the aggregator for minibatch
-    grad_b += delta_grad_b;
-    grad_w += delta_grad_w;
+template <size_t S>
+inline Vector<S> &softmax(const Vector<S> &v, Vector<S> &out) {
+    float max = v.vector[0];
+    float sum = 0;
 
-    // send the delta for layer below
-    return delta_grad_b;
-  }
+    for (size_t i = 1; i < S; ++i)
+        if (max < v.vector[i]) max = v.vector[i];
 
-  predict_t forward(const input_t &input) {
-    // compute weighted input
-    dot_matrix_vector_transposed(weights, input, weighted_input);
-    weighted_input += biases;
+    for (size_t i = 0; i < S; i++) sum += std::exp(v.vector[i] - max);
 
-    // apply activation function
-    map(activation_function::f, weighted_input, activation);
+    float c = std::max(sum, 10e-8f);
 
-    // pre-compute first derivative of activation function, will be used during
-    // backward pass
-    map(activation_function::f_prime, weighted_input, activation_prime);
+    for (size_t i = 0; i < S; i++) out.vector[i] = std::exp(v.vector[i] - max) / c;
 
-    // pass the activation as an input to the next layer
-    return network.forward(activation);
-  }
-
-  explicit MLP(std::mt19937 &gen)
-      : network(gen),
-        weighted_input(),
-        activation(),
-        activation_prime(),
-        weights(),
-        biases(),
-        grad_w(),
-        grad_b(),
-        delta_grad_w(),
-        delta_grad_b(),
-        momentum_w(),
-        momentum_b() {
-    if constexpr (false || current_layer::output) {  // Xavier
-      float lower = -(1.0 / std::sqrt(previous_layer::size));
-      float upper = (1.0 / std::sqrt(previous_layer::size));
-      auto distribution = std::uniform_real_distribution<float>(lower, upper);
-      init_weights_and_biases(distribution, gen);
-    } else {  // He
-      auto distribution = std::normal_distribution<float>(
-          0.0, std::sqrt(2.0 / previous_layer::size));
-      init_weights_and_biases(distribution, gen);
-    }
-  }
-
-  template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE>
-  void fit(std::vector<std::tuple<input_t, predict_t>> &data_and_labels,
-           float learning_rate, float momentum, float decay) {
-    SGD<NUM_SAMPLES, EPOCHS, BATCH_SIZE>(data_and_labels, learning_rate,
-                                         momentum, decay);
-  }
-
-  auto predict(const input_t &v) { return forward(v).imax(); }
-
-  template <typename input_t, typename predict_t>
-  auto &predict(const std::vector<input_t> &data, std::vector<predict_t> &out) {
-    for (const input_t &input : data) out.push_back(predict(input));
     return out;
-  }
-};
+}
 
-template <typename output_layer>
-struct MLP<output_layer> {
-  using predict_t = Vector<output_layer::size>;
-
-  predict_t activation;
-
-  explicit MLP(std::mt19937 &) : activation(){};
-
-  predict_t forward(const predict_t &input) {
-    return softmax(input, activation);
-  }
-};
-}  // namespace nn
+template <size_t S>
+inline auto &cross_entropy_cost_function_prime(const Vector<S> &activation, const Vector<S> &y, Vector<S> &out) {
+    for (size_t i = 0; i < S; ++i) out.vector[i] = activation.vector[i] - y.vector[i];
+    return out;
+}
 
 #endif  // NEUWURONKA_NETWORK_HPP
 
