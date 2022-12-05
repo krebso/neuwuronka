@@ -150,7 +150,7 @@ static void mnist_network()
 
   std::cout << "Training network...\n";
 
-  mnist_network.fit<TRAIN_SAMPLE_SIZE, 25, 128>(train_data_and_labels, 0.15f, 0.0f, 0.000f);
+  mnist_network.fit<TRAIN_SAMPLE_SIZE, 25, 128>(train_data_and_labels, 0.15f, 0.0f, 0.0f);
 
   std::cout << "Loading test data...\n";
 

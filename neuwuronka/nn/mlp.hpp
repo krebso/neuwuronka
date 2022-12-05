@@ -159,7 +159,10 @@ namespace nn
               momentum_w(),
               momentum_b()
         {
-            auto distribution = std::normal_distribution<float>(0.0, std::sqrt(2.0 / module_t::in_features));
+            float lower = -(1.0 / std::sqrt(module_t::in_features));
+            float upper = (1.0 / std::sqrt(module_t::in_features));
+            auto distribution = std::uniform_real_distribution<float>(lower, upper);
+            // auto distribution = std::normal_distribution<float>(0.0, std::sqrt(2.0 / module_t::in_features));
             for (size_t h = 0; h < weights.height; ++h)
             {
                 for (size_t w = 0; w < weights.width; ++w)
