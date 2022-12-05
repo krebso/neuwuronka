@@ -4,33 +4,21 @@
 echo "Adding some modules"
 
 module add cmake
-module add llvm
-module add python3
+module add gcc
 
-echo "#################"
-echo "    COMPILING    "
-echo "#################"
-
-if ![ -d build ]; then
-    mkdir build
-    cmake build
-fi
-
+rm -rf build
+mkdir build
 cd build
+cmake ..
+
+echo "Compiling..."
+
 make
 
 
-echo "#################"
-echo "     RUNNING     "
-echo "#################"
+echo "Running..."
 
 ./neuwuronka
-
-echo "#################"
-echo "   EVALUATING    "
-echo "#################"
-
-python3 ../evaluator/evaluator.py ../data/predictions.csv ../data/fashion_mnist_test_labels.csv
 
 cd -
 

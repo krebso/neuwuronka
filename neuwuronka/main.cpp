@@ -118,8 +118,8 @@ static void mnist_network()
 {
   constexpr size_t INPUT_IMAGE_WIDTH = 28;
   constexpr size_t INPUT_IMAGE_HEIGHT = 28;
-  constexpr size_t INPUT_DIMENSION = INPUT_IMAGE_HEIGHT * INPUT_IMAGE_WIDTH;
-  constexpr size_t OUTPUT_DIMENSION = 10;
+  constexpr size_t INPUT_FEATURES = INPUT_IMAGE_HEIGHT * INPUT_IMAGE_WIDTH;
+  constexpr size_t OUTPUT_FEATURES = 10;
 
   constexpr size_t TRAIN_SAMPLE_SIZE = 60000;
   constexpr size_t TEST_SAMPLE_SIZE = 10000;
@@ -132,9 +132,9 @@ static void mnist_network()
 
   std::mt19937 gen(42);
 
-  std::vector<std::tuple<Vector<INPUT_DIMENSION>, Vector<OUTPUT_DIMENSION>>>
+  std::vector<std::tuple<Vector<INPUT_FEATURES>, Vector<OUTPUT_FEATURES>>>
       train_data_and_labels;
-  std::vector<Vector<INPUT_DIMENSION>> test_data;
+  std::vector<Vector<INPUT_FEATURES>> test_data;
   std::vector<int> test_predictions;
   train_data_and_labels.reserve(TRAIN_SAMPLE_SIZE);
   test_data.reserve(TEST_SAMPLE_SIZE);
@@ -142,33 +142,47 @@ static void mnist_network()
 
   std::cout << "Loading training data and labels...\n";
 
-  load_train_data_and_labels<Vector<INPUT_DIMENSION>, Vector<OUTPUT_DIMENSION>,
+  load_train_data_and_labels<Vector<INPUT_FEATURES>, Vector<OUTPUT_FEATURES>,
                              TRAIN_SAMPLE_SIZE>(
       TRAIN_DATA_PATH, TRAIN_LABELS_PATH, train_data_and_labels);
 
-  auto mnist_network = nn::MLP<nn::Linear<INPUT_DIMENSION, 64, true>, nn::Linear<64, 10>>(gen);
+  auto mnist_network = nn::MLP<nn::Linear<INPUT_FEATURES, 90, true>, nn::Linear<90, OUTPUT_FEATURES>>(gen);
 
   std::cout << "Training network...\n";
 
-  mnist_network.fit<TRAIN_SAMPLE_SIZE, 25, 128>(train_data_and_labels, 0.15f, 0.0f, 0.0f);
+  mnist_network.fit<TRAIN_SAMPLE_SIZE, 7, 64>(train_data_and_labels, 0.15f, 0.5f, 0.01f);
 
   std::cout << "Loading test data...\n";
 
-  load_test_data<Vector<INPUT_DIMENSION>, TEST_SAMPLE_SIZE>(TEST_DATA_PATH,
-                                                            test_data);
+  load_test_data<Vector<INPUT_FEATURES>, TEST_SAMPLE_SIZE>(TEST_DATA_PATH,
+                                                           test_data);
 
-  std::cout << "Predicting test labels...\n";
+  // std::cout << "Predicting train...\n";
+
+  // std::ofstream train_predictions("../data/train_predictions.csv");
+  // int train_correct = 0;
+
+  // for (auto const &[data, label] : train_data_and_labels)
+  // {
+  //   train_predictions << mnist_network.predict(data) << "\n";
+  //   auto prediction = mnist_network.predict(data);
+  //   if (label[prediction] == 1.0f)
+  //     ++train_correct;
+  //   train_predictions << prediction << "\n";
+  // }
+
+  // train_predictions.close();
+
+  std::cout << "Predicting test...\n";
 
   mnist_network.predict(test_data, test_predictions);
 
-  std::cout << "Saving predictions...\n";
-
-  std::ofstream predictions_file("../data/predictions.csv");
+  std::ofstream test_predictions_file("../data/test_predictions.csv");
 
   for (int i : test_predictions)
-    predictions_file << i << "\n";
+    test_predictions_file << i << "\n";
 
-  predictions_file.close();
+  test_predictions_file.close();
 
   std::ifstream labels(TEST_LABELS_PATH);
   float correct = 0;
@@ -184,7 +198,10 @@ static void mnist_network()
 
   labels.close();
 
-  std::cout << "Accuracy: " << correct / static_cast<float>(TEST_SAMPLE_SIZE) << "\n";
+  // std::cout << "Train accuracy: " << train_correct / static_cast<float>(TRAIN_SAMPLE_SIZE)
+  // << "\n";
+
+  std::cout << "Test acccuracy: " << correct / static_cast<float>(TEST_SAMPLE_SIZE) << "\n";
 
   std::cout << "Done!\n";
 }

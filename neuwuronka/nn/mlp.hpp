@@ -127,9 +127,7 @@ namespace nn
         template <typename predict_t>
         input_t &backward(const input_t &input, const predict_t &predict, input_t &store)
         {
-            network.backward(activation, predict, delta_grad_b);
-
-            delta_grad_b *= activation_prime;
+            network.backward(activation, predict, delta_grad_b) * activation_prime;
             dot_vector_transposed_vector(delta_grad_b, input, delta_grad_w);
             grad_b += delta_grad_b;
             grad_w += delta_grad_w;
@@ -138,8 +136,7 @@ namespace nn
 
         const auto &forward(const input_t &input)
         {
-            dot_matrix_vector_transposed(weights, input, weighted_input);
-            weighted_input += bias;
+            dot_matrix_vector_transposed(weights, input, weighted_input) + bias;
             map(module_t::activation_function, weighted_input, activation);
             map(module_t::activation_function_prime, weighted_input, activation_prime);
             return network.forward(activation);
@@ -204,8 +201,7 @@ namespace nn
         template <typename predict_t>
         inline predict_t &backward(const predict_t &z, const predict_t &y, predict_t &store)
         {
-            cross_entropy_cost_function_prime(z, y, store);
-            return store;
+            return cross_entropy_cost_function_prime(z, y, store);
         }
 
         inline void zero_grad() {}
