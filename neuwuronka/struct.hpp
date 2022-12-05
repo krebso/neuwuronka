@@ -34,51 +34,43 @@ struct Vector {
 
     Vector<N>& operator+=(const Vector<N>& other) {
 #pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-        for (size_t i = 0; i < N; i++) vector[i] += other.vector[i];
+        for (size_t i = 0; i < N; i++) vector[i] += other[i];
         return *this;
     }
 
     Vector<N>& operator-(Vector<N> other) {
 #pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-        for (size_t i = 0; i < N; i++) vector[i] -= other.vector[i];
+        for (size_t i = 0; i < N; i++) vector[i] -= other[i];
         return *this;
     }
 
     Vector<N>& operator-=(Vector<N> other) {
 #pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-        for (size_t i = 0; i < N; i++) vector[i] -= other.vector[i];
+        for (size_t i = 0; i < N; i++) vector[i] -= other[i];
         return *this;
     }
 
     Vector<N>& operator*(Vector<N> other) {
 #pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-        for (size_t i = 0; i < N; i++) vector[i] *= other.vector[i];
+        for (size_t i = 0; i < N; i++) vector[i] *= other[i];
         return *this;
     }
 
     Vector<N>& operator*=(Vector<N> other) {
 #pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-        for (size_t i = 0; i < N; i++) vector[i] *= other.vector[i];
+        for (size_t i = 0; i < N; i++) vector[i] *= other[i];
         return *this;
     }
 
     Vector<N>& operator*=(float k) {
 #pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-        for (float& f : vector) f *= k;
-
+        for (size_t i = 0; i < N; ++i) vector[i] *= k;
         return *this;
     }
 
     Vector<N>& operator*(float k) {
 #pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-        for (auto& v : vector) v *= k;
+        for (size_t i = 0; i < N; ++i) vector[i] *= k;
         return *this;
     }
 
@@ -105,30 +97,30 @@ struct Matrix {
     [[nodiscard]] constexpr const float &at(size_t h, size_t w) const { return matrix[h * W + w]; }
 
     inline Matrix<H, W> &operator+=(const Matrix<H, W> &other) {
-        #pragma clang loop vectorize(assume_safety)
+#pragma clang loop vectorize(assume_safety)
         for (size_t i = 0; i < H; i++)
-            #pragma clang loop unroll_count(2)
+#pragma clang loop unroll_count(2)
             for (size_t j = 0; j < W; j++) at(i, j) += other.at(i, j);
         return *this;
     };
 
     inline Matrix<H, W> &operator-=(const Matrix<H, W> &other) {
-        #pragma clang loop vectorize(assume_safety)
+#pragma clang loop vectorize(assume_safety)
         for (size_t i = 0; i < H; i++)
-            #pragma clang loop unroll_count(2)
+#pragma clang loop unroll_count(2)
             for (size_t j = 0; j < W; j++) at(i, j) -= other.at(i, j);
         return *this;
     };
 
     inline auto &operator*(float k) {
-        #pragma clang loop vectorize(assume_safety)
-        for (auto &v : matrix) v *= k;
+#pragma clang loop vectorize(assume_safety)
+        for (size_t i = 0; i < H * W; ++i) matrix[i] *= k;
         return *this;
     }
 
     inline auto &operator*=(float k) {
 #pragma clang loop vectorize(assume_safety)
-        for (auto &v : matrix) v *= k;
+        for (size_t i = 0; i < H * W; ++i) matrix[i] *= k;
         return *this;
     }
 };
@@ -136,34 +128,26 @@ struct Matrix {
 template <typename F, typename V>
 auto &map(const F& f, const V& v, V& out) {
 #pragma clang loop vectorize(assume_safety)
-#pragma clang loop unroll_count(2)
-    for (size_t i = 0; i < V::size; ++i) out.vector[i] = f(v.vector[i]);
+    for (size_t i = 0; i < V::size; ++i) out[i] = f(v[i]);
     return v;
-}
-
-template <size_t S>
-constexpr Vector<S> onehot(size_t i) noexcept {
-    Vector<S> _onehot;
-    _onehot[i] = 1.0;
-    return _onehot;
 }
 
 template <size_t H, size_t W>
 auto &dot_matrix_vector_transposed(const Matrix<H, W> &m, const Vector<W> &v, Vector<H> &out) {
     out.zero();
-    #pragma clang loop vectorize(assume_safety)
+#pragma clang loop vectorize(assume_safety)
     for (size_t h = 0; h < H; ++h)
-        #pragma clang loop unroll_count(2)
-        for (size_t w = 0; w < W; ++w) out.vector[h] += m.at(h, w) * v[w];
+#pragma clang loop unroll_count(2)
+        for (size_t w = 0; w < W; ++w) out[h] += m.at(h, w) * v[w];
 
     return out;
 }
 
 template <size_t H, size_t W>
 auto &dot_vector_transposed_vector(const Vector<H> &hv, const Vector<W> &wv, Matrix<H, W> &out) {
-    #pragma clang loop vectorize(assume_safety)
+#pragma clang loop vectorize(assume_safety)
     for (size_t h = 0; h < H; ++h)
-        #pragma clang loop unroll_count(2)
+#pragma clang loop unroll_count(2)
         for (size_t w = 0; w < W; ++w) out.at(h, w) = hv[h] * wv[w];
     return out;
 }
@@ -174,7 +158,7 @@ auto &dot_matrix_transposed_vector(const Matrix<H, W> &m, const Vector<H> &v, Ve
     #pragma clang loop vectorize(assume_safety)
     for (size_t h = 0; h < H; ++h)
         #pragma clang loop unroll_count(2)
-        for (size_t w = 0; w < W; ++w) out.vector[w] += m.at(h, w) * v.vector[h];
+        for (size_t w = 0; w < W; ++w) out[w] += m.at(h, w) * v[h];
     return out;
 }
 

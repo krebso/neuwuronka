@@ -138,7 +138,7 @@ static void mnist_network() {
                              TRAIN_SAMPLE_SIZE>(
       TRAIN_DATA_PATH, TRAIN_LABELS_PATH, train_data_and_labels);
 
-    auto mnist_network = MLP<Layer<INPUT_DIMENSION, 70, true>, Layer<70, 10>>(gen);
+    auto mnist_network = nn::MLP<nn::Linear<INPUT_DIMENSION, 70, true>, nn::Linear<70, 10>>(gen);
 
   std::cout << "Training network...\n";
 
