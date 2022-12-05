@@ -9,9 +9,10 @@
 #include "nn/mlp.hpp"
 
 template <typename input_t, typename output_t, size_t NUM_SAMPLES>
-static std::vector<std::tuple<input_t, output_t>>& load_train_data_and_labels(
-    const char* const& data_path, const char* const& labels_path,
-    std::vector<std::tuple<input_t, output_t>>& out) {
+static std::vector<std::tuple<input_t, output_t>> &load_train_data_and_labels(
+    const char *const &data_path, const char *const &labels_path,
+    std::vector<std::tuple<input_t, output_t>> &out)
+{
   std::ifstream data(data_path);
   std::ifstream labels(labels_path);
 
@@ -19,9 +20,11 @@ static std::vector<std::tuple<input_t, output_t>>& load_train_data_and_labels(
   size_t label;
   char delim;
 
-  for (size_t i = 0; i < NUM_SAMPLES; ++i) {
+  for (size_t i = 0; i < NUM_SAMPLES; ++i)
+  {
     out.emplace_back();
-    for (size_t j = 0; j < input_t::size - 1; ++j) {
+    for (size_t j = 0; j < input_t::size - 1; ++j)
+    {
       data >> pixel;
       data >> delim;
       std::get<0>(out[i])[j] = static_cast<float>(pixel) / 255.0;
@@ -42,16 +45,19 @@ static std::vector<std::tuple<input_t, output_t>>& load_train_data_and_labels(
 }
 
 template <typename V, size_t N>
-static std::vector<V>& load_test_data(const char* const data_path,
-                                      std::vector<V>& out) {
+static std::vector<V> &load_test_data(const char *const data_path,
+                                      std::vector<V> &out)
+{
   std::ifstream data(data_path);
 
   size_t pixel;
   char delim;
 
-  for (size_t i = 0; i < N; ++i) {
+  for (size_t i = 0; i < N; ++i)
+  {
     out.emplace_back();
-    for (size_t j = 0; j < V::size - 1; ++j) {
+    for (size_t j = 0; j < V::size - 1; ++j)
+    {
       data >> pixel;
       data >> delim;
       out[i].vector[j] = static_cast<float>(pixel) / 255.0;
@@ -66,7 +72,8 @@ static std::vector<V>& load_test_data(const char* const data_path,
   return out;
 }
 
-void xor_network() {
+void xor_network()
+{
   std::vector<std::tuple<Vector<2>, Vector<2>>> xor_data_and_labels;
 
   // FIXME
@@ -75,27 +82,27 @@ void xor_network() {
   // xor_data_and_labels.push_back({{1, 0}, {0, 1}});
   // xor_data_and_labels.push_back({{0, 1}, {0, 1}});
 
-    // std::mt19937 gen(42);  // NOLINT
+  // std::mt19937 gen(42);  // NOLINT
 
-    // auto xor_network = MLP<InputLayer<2>, HiddenLayer<2>, OutputLayer<2>>(gen);
+  // auto xor_network = MLP<InputLayer<2>, HiddenLayer<2>, OutputLayer<2>>(gen);
 
-    // check whether the forward works, for this set of weights, the network correctly classifies the
-    // input booleans, where index of answer is the bool value
+  // check whether the forward works, for this set of weights, the network correctly classifies the
+  // input booleans, where index of answer is the bool value
 
-    // xor_network.weights.at(0, 0) = 2.0f;
-    // xor_network.weights.at(0, 1) = -2.0f;
-    // xor_network.weights.at(1, 0) = -2.0f;
-    // xor_network.weights.at(1, 1) = 2.0f;
-    // xor_network.bias = {0.0f, 0.0f};
+  // xor_network.weights.at(0, 0) = 2.0f;
+  // xor_network.weights.at(0, 1) = -2.0f;
+  // xor_network.weights.at(1, 0) = -2.0f;
+  // xor_network.weights.at(1, 1) = 2.0f;
+  // xor_network.bias = {0.0f, 0.0f};
 
-    // xor_network.network.weights.at(0, 0) = -1.0f;
-    // xor_network.network.weights.at(0, 1) = -1.0f;
-    // xor_network.network.weights.at(1, 0) = 1.0f;
-    // xor_network.network.weights.at(1, 1) = 1.0f;
-    // xor_network.network.bias = {1.0f, 0.0f};
+  // xor_network.network.weights.at(0, 0) = -1.0f;
+  // xor_network.network.weights.at(0, 1) = -1.0f;
+  // xor_network.network.weights.at(1, 0) = 1.0f;
+  // xor_network.network.weights.at(1, 1) = 1.0f;
+  // xor_network.network.bias = {1.0f, 0.0f};
 
-    // forward works, try the training
-    // xor_network.fit<4, 100, 1>(xor_data_and_labels, 4.0f, 0.0f, 0.0f);
+  // forward works, try the training
+  // xor_network.fit<4, 100, 1>(xor_data_and_labels, 4.0f, 0.0f, 0.0f);
 
   // auto x = xor_network.predict(Vector<2>{1, 1});
   // std::cout << "[1, 1] -> " << x << "\n";
@@ -107,7 +114,8 @@ void xor_network() {
   // std::cout << "[1, 0] -> " << x << "\n";
 }
 
-static void mnist_network() {
+static void mnist_network()
+{
   constexpr size_t INPUT_IMAGE_WIDTH = 28;
   constexpr size_t INPUT_IMAGE_HEIGHT = 28;
   constexpr size_t INPUT_DIMENSION = INPUT_IMAGE_HEIGHT * INPUT_IMAGE_WIDTH;
@@ -138,11 +146,11 @@ static void mnist_network() {
                              TRAIN_SAMPLE_SIZE>(
       TRAIN_DATA_PATH, TRAIN_LABELS_PATH, train_data_and_labels);
 
-    auto mnist_network = nn::MLP<nn::Linear<INPUT_DIMENSION, 70, true>, nn::Linear<70, 10>>(gen);
+  auto mnist_network = nn::MLP<nn::Linear<INPUT_DIMENSION, 64, true>, nn::Linear<64, 10>>(gen);
 
   std::cout << "Training network...\n";
 
-    mnist_network.fit<TRAIN_SAMPLE_SIZE, 25, 128>(train_data_and_labels, 0.003f, 0.9f, 0.000f);
+  mnist_network.fit<TRAIN_SAMPLE_SIZE, 25, 128>(train_data_and_labels, 0.15f, 0.0f, 0.000f);
 
   std::cout << "Loading test data...\n";
 
@@ -157,29 +165,32 @@ static void mnist_network() {
 
   std::ofstream predictions_file("../data/predictions.csv");
 
-  for (int i : test_predictions) predictions_file << i << "\n";
+  for (int i : test_predictions)
+    predictions_file << i << "\n";
 
   predictions_file.close();
 
-    std::ifstream labels(TEST_LABELS_PATH);
-    float correct = 0;
-    int label;
+  std::ifstream labels(TEST_LABELS_PATH);
+  float correct = 0;
+  int label;
 
-    for (int i : test_predictions) {
-        labels >> label;
-        labels >> std::ws;
-        if (label == i)
-            ++correct;
-    }
+  for (int i : test_predictions)
+  {
+    labels >> label;
+    labels >> std::ws;
+    if (label == i)
+      ++correct;
+  }
 
-    labels.close();
+  labels.close();
 
-    std::cout << "Accuracy: " << correct / static_cast<float>(TEST_SAMPLE_SIZE) << "\n";
+  std::cout << "Accuracy: " << correct / static_cast<float>(TEST_SAMPLE_SIZE) << "\n";
 
-    std::cout << "Done!\n";
+  std::cout << "Done!\n";
 }
 
-int main() {
+int main()
+{
   // xor_network();
   mnist_network();
 
