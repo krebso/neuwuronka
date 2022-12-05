@@ -142,8 +142,7 @@ static void mnist_network() {
 
   std::cout << "Training network...\n";
 
-  mnist_network.fit<TRAIN_SAMPLE_SIZE, 13, 64>(train_data_and_labels, 0.01f,
-                                               0.8f, 0.001f);
+    mnist_network.fit<TRAIN_SAMPLE_SIZE, 25, 128>(train_data_and_labels, 0.003f, 0.9f, 0.000f);
 
   std::cout << "Loading test data...\n";
 
@@ -162,7 +161,22 @@ static void mnist_network() {
 
   predictions_file.close();
 
-  std::cout << "Done!\n";
+    std::ifstream labels(TEST_LABELS_PATH);
+    float correct = 0;
+    int label;
+
+    for (int i : test_predictions) {
+        labels >> label;
+        labels >> std::ws;
+        if (label == i)
+            ++correct;
+    }
+
+    labels.close();
+
+    std::cout << "Accuracy: " << correct / static_cast<float>(TEST_SAMPLE_SIZE) << "\n";
+
+    std::cout << "Done!\n";
 }
 
 int main() {
