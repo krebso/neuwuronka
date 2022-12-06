@@ -14,8 +14,6 @@
 
 #include "../struct.hpp"
 
-// Each MLP is constructed using layers
-
 namespace nn
 {
     template <size_t _in_features, size_t _out_features, bool _input = false>

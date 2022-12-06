@@ -11,7 +11,7 @@ endif()
 
 # Add flags
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -w")
+set(CMAKE_CXX_FLAGS_RELEASE "-w -Ofast -ffp-contract=fast -funsafe-math-optimizations -march=native -msse2 -mfpmath=sse -ftree-vectorize -flto")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 
 

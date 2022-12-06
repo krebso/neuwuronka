@@ -72,48 +72,6 @@ static std::vector<V> &load_test_data(const char *const data_path,
   return out;
 }
 
-void xor_network()
-{
-  std::vector<std::tuple<Vector<2>, Vector<2>>> xor_data_and_labels;
-
-  // FIXME
-  // xor_data_and_labels.push_back({{1, 1}, {1, 0}});
-  // xor_data_and_labels.push_back({{0, 0}, {1, 0}});
-  // xor_data_and_labels.push_back({{1, 0}, {0, 1}});
-  // xor_data_and_labels.push_back({{0, 1}, {0, 1}});
-
-  // std::mt19937 gen(42);  // NOLINT
-
-  // auto xor_network = MLP<InputLayer<2>, HiddenLayer<2>, OutputLayer<2>>(gen);
-
-  // check whether the forward works, for this set of weights, the network correctly classifies the
-  // input booleans, where index of answer is the bool value
-
-  // xor_network.weights.at(0, 0) = 2.0f;
-  // xor_network.weights.at(0, 1) = -2.0f;
-  // xor_network.weights.at(1, 0) = -2.0f;
-  // xor_network.weights.at(1, 1) = 2.0f;
-  // xor_network.bias = {0.0f, 0.0f};
-
-  // xor_network.network.weights.at(0, 0) = -1.0f;
-  // xor_network.network.weights.at(0, 1) = -1.0f;
-  // xor_network.network.weights.at(1, 0) = 1.0f;
-  // xor_network.network.weights.at(1, 1) = 1.0f;
-  // xor_network.network.bias = {1.0f, 0.0f};
-
-  // forward works, try the training
-  // xor_network.fit<4, 100, 1>(xor_data_and_labels, 4.0f, 0.0f, 0.0f);
-
-  // auto x = xor_network.predict(Vector<2>{1, 1});
-  // std::cout << "[1, 1] -> " << x << "\n";
-  // x = xor_network.predict(Vector<2>{0, 0});
-  // std::cout << "[0, 0] -> " << x << "\n";
-  // x = xor_network.predict(Vector<2>{0, 1});
-  // std::cout << "[0, 1] -> " << x << "\n";
-  // x = xor_network.predict(Vector<2>{1, 0});
-  // std::cout << "[1, 0] -> " << x << "\n";
-}
-
 static void mnist_network()
 {
   constexpr size_t INPUT_IMAGE_WIDTH = 28;
@@ -140,11 +98,15 @@ static void mnist_network()
   test_data.reserve(TEST_SAMPLE_SIZE);
   test_predictions.reserve(TEST_SAMPLE_SIZE);
 
-  std::cout << "Loading training data and labels...\n";
+  std::cout << "Loading data and labels...\n";
 
   load_train_data_and_labels<Vector<INPUT_FEATURES>, Vector<OUTPUT_FEATURES>,
                              TRAIN_SAMPLE_SIZE>(
       TRAIN_DATA_PATH, TRAIN_LABELS_PATH, train_data_and_labels);
+
+  load_test_data<Vector<INPUT_FEATURES>, TEST_SAMPLE_SIZE>(TEST_DATA_PATH,
+                                                           test_data);
+
 
   auto mnist_network = nn::MLP<nn::Linear<INPUT_FEATURES, 90, true>, nn::Linear<90, OUTPUT_FEATURES>>(gen);
 
@@ -152,32 +114,25 @@ static void mnist_network()
 
   mnist_network.fit<TRAIN_SAMPLE_SIZE, 7, 64>(train_data_and_labels, 0.15f, 0.5f, 0.01f);
 
-  std::cout << "Loading test data...\n";
+  std::cout << "Predicting...\n";
 
-  load_test_data<Vector<INPUT_FEATURES>, TEST_SAMPLE_SIZE>(TEST_DATA_PATH,
-                                                           test_data);
+  std::ofstream train_predictions("../train_predictions.csv");
+  int train_correct = 0;
 
-  // std::cout << "Predicting train...\n";
+  for (auto const &[data, label] : train_data_and_labels)
+  {
+    train_predictions << mnist_network.predict(data) << "\n";
+    auto prediction = mnist_network.predict(data);
+    if (label[prediction] == 1.0f)
+      ++train_correct;
+    train_predictions << prediction << "\n";
+  }
 
-  // std::ofstream train_predictions("../data/train_predictions.csv");
-  // int train_correct = 0;
-
-  // for (auto const &[data, label] : train_data_and_labels)
-  // {
-  //   train_predictions << mnist_network.predict(data) << "\n";
-  //   auto prediction = mnist_network.predict(data);
-  //   if (label[prediction] == 1.0f)
-  //     ++train_correct;
-  //   train_predictions << prediction << "\n";
-  // }
-
-  // train_predictions.close();
-
-  std::cout << "Predicting test...\n";
+  train_predictions.close();
 
   mnist_network.predict(test_data, test_predictions);
 
-  std::ofstream test_predictions_file("../data/test_predictions.csv");
+  std::ofstream test_predictions_file("../test_predictions.csv");
 
   for (int i : test_predictions)
     test_predictions_file << i << "\n";
@@ -198,8 +153,8 @@ static void mnist_network()
 
   labels.close();
 
-  // std::cout << "Train accuracy: " << train_correct / static_cast<float>(TRAIN_SAMPLE_SIZE)
-  // << "\n";
+  std::cout << "Train accuracy: " << train_correct / static_cast<float>(TRAIN_SAMPLE_SIZE)
+  << "\n";
 
   std::cout << "Test acccuracy: " << correct / static_cast<float>(TEST_SAMPLE_SIZE) << "\n";
 
@@ -208,7 +163,6 @@ static void mnist_network()
 
 int main()
 {
-  // xor_network();
   mnist_network();
 
   return 0;
