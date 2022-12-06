@@ -14,24 +14,25 @@
 
 #include "../struct.hpp"
 
-// Each MLP is constructed using layers
-
-namespace nn {
+namespace nn
+{
     template <size_t _in_features, size_t _out_features, bool _input = false>
-    struct Linear {
+    struct Linear
+    {
         static constexpr size_t in_features = _in_features;
         static constexpr size_t out_features = _out_features;
         static constexpr bool input = _input;
 
-        static constexpr const auto& activation_function = relu<float>;
-        static constexpr const auto& activation_function_prime = relu_prime<float>;
+        static constexpr const auto &activation_function = relu<float>;
+        static constexpr const auto &activation_function_prime = relu_prime<float>;
     };
 
     template <typename... args>
     class MLP;
 
     template <typename module_t, typename... args>
-    struct MLP<module_t, args...> {
+    struct MLP<module_t, args...>
+    {
         using network_t = MLP<args...>;
         using input_t = Vector<module_t::in_features>;
         using output_t = Vector<module_t::out_features>;
@@ -45,24 +46,26 @@ namespace nn {
         output_t activation_prime;
 
         weights_t weights;
-        bias_t    bias;
+        bias_t bias;
 
         weights_t grad_w;
-        bias_t    grad_b;
+        bias_t grad_b;
 
         weights_t momentum_w;
-        bias_t    momentum_b;
+        bias_t momentum_b;
 
         weights_t delta_grad_w;
-        bias_t    delta_grad_b;
+        bias_t delta_grad_b;
 
-        inline void zero_grad() {
+        inline void zero_grad()
+        {
             grad_b.zero();
             grad_w.zero();
             network.zero_grad();
         }
 
-        inline void update(float learning_rate, float momentum) {
+        inline void update(float learning_rate, float momentum)
+        {
             momentum_w *= momentum;
             momentum_b *= momentum;
 
@@ -70,22 +73,25 @@ namespace nn {
             momentum_b += grad_b * learning_rate;
 
             weights -= momentum_w;
-            bias    -= momentum_b;
+            bias -= momentum_b;
 
             network.update(learning_rate, momentum);
         }
 
         template <typename predict_t>
         void update_mini_batch(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, size_t start, size_t end,
-                               float learning_rate, float momentum) {
-            if constexpr (module_t::input) {
+                               float learning_rate, float momentum)
+        {
+            if constexpr (module_t::input)
+            {
                 auto n = static_cast<float>(end - start);
 
                 zero_grad();
 
                 static input_t store;
 
-                for (size_t i = start; i < end; ++i) {
+                for (size_t i = start; i < end; ++i)
+                {
                     forward(std::get<0>(data_and_labels[i]));
                     backward(std::get<0>(data_and_labels[i]), std::get<1>(data_and_labels[i]), store);
                 }
@@ -96,12 +102,15 @@ namespace nn {
 
         template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE, typename predict_t>
         void SGD(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, float learning_rate, float momentum,
-                 float decay) {
-            if (module_t::input) {
-                std::mt19937 gen(42);  // NOLINT
+                 float decay)
+        {
+            if (module_t::input)
+            {
+                std::mt19937 gen(42); // NOLINT
                 auto lr = learning_rate;
 
-                for (size_t e = 0; e < EPOCHS; ++e) {
+                for (size_t e = 0; e < EPOCHS; ++e)
+                {
                     std::cout << "Epoch " << e + 1 << "/" << EPOCHS << "\n";
                     lr *= (1.0f / (1.0f + decay * static_cast<float>(e)));
                     std::shuffle(data_and_labels.begin(), data_and_labels.end(), gen);
@@ -114,7 +123,8 @@ namespace nn {
         }
 
         template <typename predict_t>
-        input_t &backward(const input_t &input, const predict_t &predict, input_t &store) {
+        input_t &backward(const input_t &input, const predict_t &predict, input_t &store)
+        {
             network.backward(activation, predict, delta_grad_b) * activation_prime;
             dot_vector_transposed_vector(delta_grad_b, input, delta_grad_w);
             grad_b += delta_grad_b;
@@ -122,7 +132,8 @@ namespace nn {
             return dot_matrix_transposed_vector(weights, delta_grad_b, store);
         }
 
-        const auto &forward(const input_t &input) {
+        const auto &forward(const input_t &input)
+        {
             dot_matrix_vector_transposed(weights, input, weighted_input) + bias;
             map(module_t::activation_function, weighted_input, activation);
             map(module_t::activation_function_prime, weighted_input, activation_prime);
@@ -141,40 +152,53 @@ namespace nn {
               delta_grad_w(),
               delta_grad_b(),
               momentum_w(),
-              momentum_b() {
-            auto distribution = std::normal_distribution<float>(0.0, std::sqrt(2.0 / module_t::in_features));
-            for (size_t h = 0; h < weights.height; ++h) {
-                for (size_t w = 0; w < weights.width; ++w) weights.at(h, w) = distribution(gen);
+              momentum_b()
+        {
+            float lower = -(1.0 / std::sqrt(module_t::in_features));
+            float upper = (1.0 / std::sqrt(module_t::in_features));
+            auto distribution = std::uniform_real_distribution<float>(lower, upper);
+            // auto distribution = std::normal_distribution<float>(0.0, std::sqrt(2.0 / module_t::in_features));
+            for (size_t h = 0; h < weights.height; ++h)
+            {
+                for (size_t w = 0; w < weights.width; ++w)
+                    weights.at(h, w) = distribution(gen);
+                bias[h] = distribution(gen);
             }
         }
 
         template <size_t NUM_SAMPLES, size_t EPOCHS, size_t BATCH_SIZE, typename predict_t>
         void fit(std::vector<std::tuple<input_t, predict_t>> &data_and_labels, float learning_rate,
-                 float momentum, float decay) {
+                 float momentum, float decay)
+        {
             SGD<NUM_SAMPLES, EPOCHS, BATCH_SIZE>(data_and_labels, learning_rate, momentum, decay);
         }
 
         auto predict(const input_t &v) { return forward(v).imax(); }
 
         template <typename input_t, typename predict_t>
-        auto &predict(const std::vector<input_t> &data, std::vector<predict_t> &out) {
-            for (const input_t &input : data) out.push_back(predict(input));
+        auto &predict(const std::vector<input_t> &data, std::vector<predict_t> &out)
+        {
+            for (const input_t &input : data)
+                out.push_back(predict(input));
             return out;
         }
     };
 
     template <>
-    struct MLP<> {
+    struct MLP<>
+    {
         explicit MLP(std::mt19937 &) {}
 
         template <typename predict_t>
-        inline const predict_t &forward(const predict_t &input) {
+        inline const predict_t &forward(const predict_t &input)
+        {
             static predict_t activation;
             return softmax(input, activation);
         }
 
         template <typename predict_t>
-        inline predict_t &backward(const predict_t &z, const predict_t &y, predict_t &store) {
+        inline predict_t &backward(const predict_t &z, const predict_t &y, predict_t &store)
+        {
             return cross_entropy_cost_function_prime(z, y, store);
         }
 
@@ -184,35 +208,32 @@ namespace nn {
 }
 
 template <size_t S>
-inline Vector<S> &softmax(const Vector<S> &v, Vector<S> &out) {
+inline Vector<S> &softmax(const Vector<S> &v, Vector<S> &out)
+{
     float max = v.vector[0];
     float sum = 0;
 
     for (size_t i = 1; i < S; ++i)
-        if (max < v.vector[i]) max = v.vector[i];
+        if (max < v.vector[i])
+            max = v.vector[i];
 
-    for (size_t i = 0; i < S; i++) sum += std::exp(v.vector[i] - max);
+    for (size_t i = 0; i < S; i++)
+        sum += std::exp(v.vector[i] - max);
 
     float c = std::max(sum, 10e-8f);
 
-    for (size_t i = 0; i < S; i++) out.vector[i] = std::exp(v.vector[i] - max) / c;
+    for (size_t i = 0; i < S; i++)
+        out.vector[i] = std::exp(v.vector[i] - max) / c;
 
     return out;
 }
 
 template <size_t S>
-inline auto &cross_entropy_cost_function_prime(const Vector<S> &activation, const Vector<S> &y, Vector<S> &out) {
-    for (size_t i = 0; i < S; ++i) out.vector[i] = activation.vector[i] - y.vector[i];
+inline auto &cross_entropy_cost_function_prime(const Vector<S> &activation, const Vector<S> &y, Vector<S> &out)
+{
+    for (size_t i = 0; i < S; ++i)
+        out.vector[i] = activation.vector[i] - y.vector[i];
     return out;
 }
 
-#endif  // NEUWURONKA_NETWORK_HPP
-
-template <size_t S>
-inline auto &cross_entropy_cost_function_prime(const Vector<S> &activation,
-                                               const Vector<S> &y,
-                                               Vector<S> &out) {
-  for (size_t i = 0; i < S; ++i)
-    out.vector[i] = activation.vector[i] - y.vector[i];
-  return out;
-}
+#endif // NEUWURONKA_NETWORK_HPP
