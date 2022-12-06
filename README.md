@@ -3,9 +3,9 @@ Martin Krebs, 514407
 # FASHION MNIST FROM SCRATCH
 
 - solved using templates and recursive types
-- allows for optimalizations on compilation, every thing is laid out im memory
+- allows for optimalizations on compilation, everything is laid out in memory
 - not using paralellism atm, does not give performance benefits for task
-- the network is trained as fully connected MLP, with SGD w momentum and decay
+- the network is trained as fully connected MLP, with SGD using momentum and decay
 
 ### NOTES FROM WORKING ON THE PROJECT
 
