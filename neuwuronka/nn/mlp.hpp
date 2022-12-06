@@ -17,6 +17,7 @@
 namespace nn
 {
     template <size_t _in_features, size_t _out_features, bool _input = false>
+    // Allows us to define network architecture
     struct Linear
     {
         static constexpr size_t in_features = _in_features;
@@ -54,8 +55,8 @@ namespace nn
         weights_t momentum_w;
         bias_t momentum_b;
 
-        weights_t delta_grad_w;
-        bias_t delta_grad_b;
+        weights_t delta_w;
+        bias_t delta_b;
 
         inline void zero_grad()
         {
@@ -66,15 +67,19 @@ namespace nn
 
         inline void update(float learning_rate, float momentum)
         {
+            // update friction
             momentum_w *= momentum;
             momentum_b *= momentum;
 
+            // add new gradient
             momentum_w += grad_w * learning_rate;
             momentum_b += grad_b * learning_rate;
 
+            // update parameters
             weights -= momentum_w;
             bias -= momentum_b;
 
+            // recursively update the rest of network
             network.update(learning_rate, momentum);
         }
 
@@ -86,13 +91,16 @@ namespace nn
             {
                 auto n = static_cast<float>(end - start);
 
+                // another catch from https://twitter.com/karpathy/status/1013244313327681536 :)
                 zero_grad();
 
                 static input_t store;
 
                 for (size_t i = start; i < end; ++i)
                 {
+                    // set activations
                     forward(std::get<0>(data_and_labels[i]));
+                    // set gradients
                     backward(std::get<0>(data_and_labels[i]), std::get<1>(data_and_labels[i]), store);
                 }
 
@@ -109,13 +117,21 @@ namespace nn
                 std::mt19937 gen(42); // NOLINT
                 auto lr = learning_rate;
 
+                // in each epoch
                 for (size_t e = 0; e < EPOCHS; ++e)
                 {
                     std::cout << "Epoch " << e + 1 << "/" << EPOCHS << "\n";
+
+                    // update learning rate wrt. decay
                     lr *= (1.0f / (1.0f + decay * static_cast<float>(e)));
+
+                    // shuffle training set
                     std::shuffle(data_and_labels.begin(), data_and_labels.end(), gen);
 
+                    // for each minibatch
                     for (size_t batch_index = 0; batch_index < NUM_SAMPLES; batch_index += BATCH_SIZE)
+
+                        // perform one step of SGD wrt. momentum
                         update_mini_batch(data_and_labels, batch_index, std::min(NUM_SAMPLES, batch_index + BATCH_SIZE), lr,
                                           momentum);
                 }
@@ -123,20 +139,35 @@ namespace nn
         }
 
         template <typename predict_t>
-        input_t &backward(const input_t &input, const predict_t &predict, input_t &store)
+        inline input_t &backward(const input_t &input, const predict_t &predict, input_t &store)
         {
-            network.backward(activation, predict, delta_grad_b) * activation_prime;
-            dot_vector_transposed_vector(delta_grad_b, input, delta_grad_w);
-            grad_b += delta_grad_b;
-            grad_w += delta_grad_w;
-            return dot_matrix_transposed_vector(weights, delta_grad_b, store);
+            // gradient from layer above
+            network.backward(activation, predict, delta_b);
+
+            // derivative of activation function
+            delta_b *= activation_prime;
+            
+            // compute my gradient
+            dot_vector_transposed_vector(delta_b, input, delta_w);
+            grad_b += delta_b;
+            grad_w += delta_w;
+
+            // return my gradient to layer below
+            return dot_matrix_transposed_vector(weights, delta_b, store);
         }
 
-        const auto &forward(const input_t &input)
+        inline const auto &forward(const input_t &input)
         {
+            // perform linear transformation
             dot_matrix_vector_transposed(weights, input, weighted_input) + bias;
+
+            // set activation
             map(module_t::activation_function, weighted_input, activation);
+
+            // set derivative of activation, will be used during backprop
             map(module_t::activation_function_prime, weighted_input, activation_prime);
+
+            // pass activation to next layer
             return network.forward(activation);
         }
 
@@ -149,15 +180,14 @@ namespace nn
               bias(),
               grad_w(),
               grad_b(),
-              delta_grad_w(),
-              delta_grad_b(),
+              delta_w(),
+              delta_b(),
               momentum_w(),
               momentum_b()
         {
             float lower = -(1.0 / std::sqrt(module_t::in_features));
             float upper = (1.0 / std::sqrt(module_t::in_features));
             auto distribution = std::uniform_real_distribution<float>(lower, upper);
-            // auto distribution = std::normal_distribution<float>(0.0, std::sqrt(2.0 / module_t::in_features));
             for (size_t h = 0; h < weights.height; ++h)
             {
                 for (size_t w = 0; w < weights.width; ++w)
@@ -214,16 +244,15 @@ inline Vector<S> &softmax(const Vector<S> &v, Vector<S> &out)
     float sum = 0;
 
     for (size_t i = 1; i < S; ++i)
-        if (max < v.vector[i])
-            max = v.vector[i];
+        max = max < v[i] ? v[i] : max;
 
     for (size_t i = 0; i < S; i++)
-        sum += std::exp(v.vector[i] - max);
+        sum += std::exp(v[i] - max);
 
     float c = std::max(sum, 10e-8f);
 
     for (size_t i = 0; i < S; i++)
-        out.vector[i] = std::exp(v.vector[i] - max) / c;
+        out.vector[i] = std::exp(v[i] - max) / c;
 
     return out;
 }
@@ -232,7 +261,7 @@ template <size_t S>
 inline auto &cross_entropy_cost_function_prime(const Vector<S> &activation, const Vector<S> &y, Vector<S> &out)
 {
     for (size_t i = 0; i < S; ++i)
-        out.vector[i] = activation.vector[i] - y.vector[i];
+        out[i] = activation[i] - y[i];
     return out;
 }
 

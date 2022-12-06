@@ -9,6 +9,10 @@
 
 #include "math.hpp"
 
+/*
+ Important, all the operators are not const! Because we want to avoid creating copies, v1 + v2 will modify v1!
+*/
+
 template <size_t N>
 struct Vector {
     static constexpr size_t size = N;
@@ -155,9 +159,9 @@ auto &dot_vector_transposed_vector(const Vector<H> &hv, const Vector<W> &wv, Mat
 template <size_t H, size_t W>
 auto &dot_matrix_transposed_vector(const Matrix<H, W> &m, const Vector<H> &v, Vector<W> &out) {
     out.zero();
-    #pragma clang loop vectorize(assume_safety)
+#pragma clang loop vectorize(assume_safety)
     for (size_t h = 0; h < H; ++h)
-        #pragma clang loop unroll_count(2)
+#pragma clang loop unroll_count(2)
         for (size_t w = 0; w < W; ++w) out[w] += m.at(h, w) * v[h];
     return out;
 }
